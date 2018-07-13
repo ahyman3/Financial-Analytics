@@ -1,0 +1,29 @@
+---
+title: "Hyman-Alex_Project2.Rmd"
+author: "Alex Hyman"
+date: "7/13/2018"
+output: pdf_document
+---
+#Assignment:
+1. Use headers (##), r-chunks for code, and text to build a report that addresses the two parts of this project.
+
+2. List in the text the ‘R’ skills needed to complete this project.
+
+3. Explain each of the functions (e.g., ggplot()) used to compute and visualize results.
+
+4. Discuss how well did the results begin to answer the business questions posed at the beginning of each part of the project.
+
+# Part 1: HO2 data preparation and exploration
+(INSERT explanatory text here)
+(INSERT r chunks here)
+## Question 1 - title
+(INSERT explanatory text here)
+(INSERT r chunks here)
+## Question 2 - title
+(INSERT explanatory text here)
+(INSERT r chunks here)
+# Part 2: HO2 analysis
+(INSERT explanatory text here)
+## Further questions as needed
+(INSERT explanatory text here)
+(INSERT r chunks here)
