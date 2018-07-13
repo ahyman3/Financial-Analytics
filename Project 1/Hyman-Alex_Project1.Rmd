@@ -1,5 +1,5 @@
 ---
-title: "Hyman-Alex_Project2.Rmd"
+title: "Project 1: HO2 Analysis"
 author: "Alex Hyman"
 date: "7/13/2018"
 output: pdf_document
@@ -14,16 +14,65 @@ output: pdf_document
 4. Discuss how well did the results begin to answer the business questions posed at the beginning of each part of the project.
 
 # Part 1: HO2 data preparation and exploration
-(INSERT explanatory text here)
-(INSERT r chunks here)
-## Question 1 - title
-(INSERT explanatory text here)
-(INSERT r chunks here)
+
+ Data is provided by the turing.manhattan.edu website and is accessed via the url function. The following R block will read the data, ensuring that the DATE column is not read as a factor. We will also preview the data with the head function and clean the data with the na.omit function. The na.omit function will get rid of any rows that have NA as a value. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
+ 
+ 
+```{r}
+# getting the data from online at https://turing.manhattan.edu/~wfoote01/finalytics/data/
+# reading the nyhh02.csv file
+HO2 <- read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/nyhh02.csv"), stringsAsFactors = F, header = T)
+# Previewing the data
+head(HO2)
+# Omitting the na values in the data frame
+HO2 <- na.omit(HO2)
+# looking at the structure of the data frames
+str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
+```
+
+
+
+## Question 1 - Nature of HO2 Returns
+The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date).
+
+```{r}
+# Calculating difference of logs returns to calculate approximate percent change
+return <- as.numeric(diff(log(HO2$DHOILNYH))) * 100
+# Getting the absolute value of the percent changes to get magnitude
+size <- as.numeric(abs(return))
+# creating a character vector that will hold information on whether the price went up, down, or stayed the same using logical indexing on the returns
+direction <- character(length(return))
+direction[return > 0] <- "up"
+direction[return < 0] <- "down"
+direction[return == 0] <- "same"
+# Converting the dates in HO2 to actual dates using the as.Date function. Deleting the first index of dates because there is no percent change on the first entry
+date <- as.Date(HO2$DATE[-1], "%m/%d/%Y")
+# Creating a vector of the prices. Deleting the first index so we can have same lengths in vectors.
+price <- HO2$DHOILNYH[-1]
+# Creating a data frame for HO2 that contains the returns percent change, date, direction, magnitude of returns and the actual price
+HO2.df <- na.omit(data.frame(
+                            Date = date, 
+                            Price = price,
+                            Return = return,
+                            Size = size,
+                            Direction = direction
+                             ))
+# Looking at the structure of the data frame. The Dates should be included as dates and the direction should be a factor with three different levels: "up", "down", "same"
+str(HO2.df)
+```
+
+
 ## Question 2 - title
 (INSERT explanatory text here)
-(INSERT r chunks here)
+```{r}
+
+```
+
 # Part 2: HO2 analysis
 (INSERT explanatory text here)
 ## Further questions as needed
 (INSERT explanatory text here)
-(INSERT r chunks here)
+```{r}
+
+```
+
