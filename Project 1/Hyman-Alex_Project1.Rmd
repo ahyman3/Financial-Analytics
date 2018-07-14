@@ -35,6 +35,7 @@ str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
 ## Question 1 - Nature of HO2 Returns
 The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date).
 
+
 ```{r}
 # Calculating difference of logs returns to calculate approximate percent change
 return <- as.numeric(diff(log(HO2$DHOILNYH))) * 100
@@ -61,11 +62,76 @@ HO2.df <- na.omit(data.frame(
 str(HO2.df)
 ```
 
+Firstly, we will plot the returns of HO2 overtime via the ggplot2 library and the ggplot function. The aesthetic inside the ggplot will have x set to the date and y set to the return. The geom_line will also be added to the ggplot and have the line color set to blue.
 
-## Question 2 - title
-(INSERT explanatory text here)
+
 ```{r}
+library(ggplot2)
+p <- ggplot(HO2.df, aes(x = Date, y = Return, group = 1)) + geom_line(colour = 'blue')
+p
+```
 
+Next, we will create a bar plot of the absolute value of the percent returns. This will be done using the ggplot function with the Date as the X-axis and the absolute value of the percent returns as the y-axis. The plot is displyed as a bar chart, adding the geom_bar tool to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size over time.
+
+
+```{r}
+# Using the bar chart tool from the ggplot function
+p <- ggplot(HO2.df, aes(x = Date, y = Size, group = 1)) + 
+    geom_bar(stat = "identity", colour = "green") # Setting stat to identity so we do not show count data
+p # Displaying the plot
+```
+
+Next, we will provide a plot that contains both the absolute value of the returns in an orange color and the actual returns in blue. Wherever the orange line is visible, the returns were negative for that day. 
+
+
+```{r}
+# Plotting the orange size of returns geom_bar plot first and then overlaying the blue geom_line plot to so only days that had negative returns will be visible in the plot. This is because the blue line would be below the x-axis and the absolute value is always positive
+p <- ggplot(HO2.df, aes(x = Date, y = Size)) +
+    geom_bar(stat = 'identity', colour = 'darkorange') +
+    geom_line(data = HO2.df, aes(x = Date, y = Return), colour = 'blue')
+p
+```
+
+
+
+## Question 2 - Analysis of HO2 
+Next an analysis of the returns will be conducted. This analysis will include the:
+    * Mean
+    * Standard Deviation
+    * Median
+    * Skewness
+    * Kurtosis
+
+
+```{r}
+# Creating a function to calculate all the analysis data listed above
+data_moments <- function(data) {
+    # Need the moments library for skewness and kurtosis
+    library(moments)
+    #Calculate mean
+    mean.r <- mean(data)
+    # Calculate standard deviation
+    sd.r <- sd(data)
+    # Calculate median
+    median.r <- median(data)
+    # Calculate skewness (shifted lef or right)
+    skewness.r <- skewness(data)
+    # Calculte the kurtosis (peakedness)
+    kurtosis.r <- kurtosis(data)
+    # Creating a data frame with all the moments
+    result <- data.frame(Mean = mean.r, 'Standard Deviation' = sd.r,
+                         Median = median.r, Skewness = skewness.r,
+                         Kurtosis = kurtosis.r
+                         )
+    # Returning the data frame
+    return(result)
+}
+# Using the function we created on the returns 
+answer <- data_moments(HO2.df$Return)
+# Rounding our data frame to only four decimal points
+answer <- round(answer, 4)
+# Creating table for display
+knitr::kable(answer)
 ```
 
 # Part 2: HO2 analysis
