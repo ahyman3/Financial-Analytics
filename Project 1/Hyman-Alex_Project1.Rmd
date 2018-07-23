@@ -4,6 +4,9 @@ author: "Alex Hyman"
 date: "7/13/2018"
 output: pdf_document
 ---
+# My questions
+1. Why is tolerance measured on the positive returns? If we have exposure in a stock, wouldn't we want the price to keep going up?
+2. 
 #Assignment:
 1. Use headers (##), r-chunks for code, and text to build a report that addresses the two parts of this project.
 
@@ -16,9 +19,9 @@ output: pdf_document
 # Part 1: HO2 data preparation and exploration
 
  Data is provided by the turing.manhattan.edu website and is accessed via the url function. The following R block will read the data, ensuring that the DATE column is not read as a factor. We will also preview the data with the head function and clean the data with the na.omit function. The na.omit function will get rid of any rows that have NA as a value. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
- 
- 
-```{r}
+
+
+```{r Reading Data}
 # getting the data from online at https://turing.manhattan.edu/~wfoote01/finalytics/data/
 # reading the nyhh02.csv file
 HO2 <- read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/nyhh02.csv"), stringsAsFactors = F, header = T)
@@ -32,11 +35,13 @@ str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
 
 
 
-## Question 1 - Nature of HO2 Returns
+## Question 1. What is the nature of HO2 returns? We want to reflect the ups and downs of price movements, something of prime interest to management. First, we calculate percentage changes as log returns. Our interest is in the ups and downs. To look at that we use if and else statements to define a new column called direction. We will build a data frame to house this analysis.
+
+
 The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date).
 
 
-```{r}
+```{r Cleaning Data}
 # Calculating difference of logs returns to calculate approximate percent change
 return <- as.numeric(diff(log(HO2$DHOILNYH))) * 100
 # Getting the absolute value of the percent changes to get magnitude
@@ -65,7 +70,7 @@ str(HO2.df)
 Firstly, we will plot the returns of HO2 overtime via the ggplot2 library and the ggplot function. The aesthetic inside the ggplot will have x set to the date and y set to the return. The geom_line will also be added to the ggplot and have the line color set to blue.
 
 
-```{r}
+```{r Plotting Returns}
 library(ggplot2)
 p <- ggplot(HO2.df, aes(x = Date, y = Return, group = 1)) + geom_line(colour = 'blue')
 p
@@ -74,7 +79,7 @@ p
 Next, we will create a bar plot of the absolute value of the percent returns. This will be done using the ggplot function with the Date as the X-axis and the absolute value of the percent returns as the y-axis. The plot is displyed as a bar chart, adding the geom_bar tool to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size over time.
 
 
-```{r}
+```{r Plotting Size}
 # Using the bar chart tool from the ggplot function
 p <- ggplot(HO2.df, aes(x = Date, y = Size, group = 1)) + 
     geom_bar(stat = "identity", colour = "green") # Setting stat to identity so we do not show count data
@@ -84,7 +89,7 @@ p # Displaying the plot
 Next, we will provide a plot that contains both the absolute value of the returns in an orange color and the actual returns in blue. Wherever the orange line is visible, the returns were negative for that day. 
 
 
-```{r}
+```{r Plotting Overlay}
 # Plotting the orange size of returns geom_bar plot first and then overlaying the blue geom_line plot to so only days that had negative returns will be visible in the plot. This is because the blue line would be below the x-axis and the absolute value is always positive
 p <- ggplot(HO2.df, aes(x = Date, y = Size)) +
     geom_bar(stat = 'identity', colour = 'darkorange') +
@@ -94,7 +99,7 @@ p
 
 
 
-## Question 2 - Analysis of HO2 
+## Question 2 - Let’s dig deeper and compute mean, standard deviation, etc. Load the data_moments() function. Run the function using the HO2.df$return subset of the data and write a knitr::kable() report.
 Next an analysis of the returns will be conducted. This analysis will include the:
     * Mean
     * Standard Deviation
@@ -103,7 +108,7 @@ Next an analysis of the returns will be conducted. This analysis will include th
     * Kurtosis
 
 
-```{r}
+```{r Data Moments}
 # Creating a function to calculate all the analysis data listed above
 data_moments <- function(data) {
     # Need the moments library for skewness and kurtosis
@@ -134,11 +139,181 @@ answer <- round(answer, 4)
 knitr::kable(answer)
 ```
 
-# Part 2: HO2 analysis
-(INSERT explanatory text here)
-## Further questions as needed
-(INSERT explanatory text here)
-```{r}
+## Question 3 - Let’s pivot size and return on direction. What is the average and range of returns by direction? How often might we view positive or negative movements in HO2?
+To gain a better understanding of how the returns behave, we will make a summary table that provides the average returns, standard deviation of returns, 5th percentile, 95th percentile, and the percentage of instances for each of the three different returns categories ("up", "down", "same"). Logically, the returns that are the same should have an average of zero, standard deviation of zero, and 
 
+```{r Pivot Table, results="asis"}
+#Set results to "asis" from karl broman from kbroman.org
+#Count number of results less than 0 (equal to zero is false)
+table(HO2.df$Return < 0)
+#Count number of results greater than 0 (equal to zero is false)
+table(HO2.df$Return > 0)
+#Count number of instances in each category
+table(HO2.df$Direction)
+#Counts number of returns that ended where they finished
+table(HO2.df$Return == 0)
+#Import the dplyr library for pivot table analysis
+library(dplyr)
+# Starting the pivot table by separtating by direction
+pivot.table <- group_by(HO2.df, Direction)
+# Making all columns visible
+options(dplyr.width = Inf)
+# Getting the number of entries so percantage can be calculated
+HO2.count <- length(HO2.df$Return)
+#Creating the pivot table based on the grouped direction. This data includes average return, standard deviation of returns, 5th percentile of returns, 95 percentile of returns, and the percentage of instances for each direction of the (up, down, and same)
+pivot.table <- summarise(pivot.table,
+                         return.avg = round(mean(Return), 4),
+                         return.sd = round(sd(Return), 4),
+                         quantile.5 = round(quantile(Return, 0.05), 4),
+                         quantile.95 = round(quantile(Return, 0.95), 4),
+                         percent = round(length(Return) / HO2.count, 4) * 100
+                         )
+#Displaying the pivot table
+knitr::kable(pivot.table, digits = 2)
+#Importing the xtable library
+library(xtable)
+#Initializing the caption for another table
+HO2.caption <- "Heating Oil No. 2: 1986 - 2016"
+#Printing the pivot table in LaTeX
+print(xtable(t(pivot.table), digits = 2, caption = HO2.caption, align = rep("r", 4), table.placement = "V"))
+#Printing the details of all the returns
+print(xtable(answer), digits = 2)
 ```
+
+
+# Part 2: HO2 analysis
+## Question 1. How can we show the differences in the shape of ups and downs in HO2, especially given our tolerance for risk? We can use the HO2.df data frame with ggplot2 and the cumulative relative frequency function stat_ecdf to begin to understand this data.
+
+
+
+## Further questions as needed
+Plotting the shapes of the positive and negative returns
+ 
+ 
+```{r ECDF Plot}
+#Setting the tolerance to 5%
+HO2.tol.pct <- 0.95
+#Figuring out wht the 95th percentile of returns would be
+HO2.tol <- quantile(HO2.df$Return, HO2.tol.pct)
+#Creating the label with the past function that says where our tolerable limit is
+HO2.tol.label <- paste("Tolerable Rate = ", round(HO2.tol, 2), sep = "")
+#Plotting the cumulative density function for negative, positive, and same returns. Same returns should be a straight line at zero. The tolerance will also be plotted on as a vertical red line
+ggplot(HO2.df, aes(Return, fill = Direction)) +  # starting the plot with returns as our data and a different density function for each direction
+    stat_ecdf(colour = "blue", size = 0.75) + # plotting the density functions in blue
+    geom_vline(xintercept = HO2.tol, # drawing a vertical redline at the tolerance limit
+        colour = "red", size = 1.5) + 
+    annotate("text", x = HO2.tol + 10, # adding the label to the plot
+        y = 0.75, label = HO2.tol.label, 
+        colour = "darkred")
+```
+
+## Question 2. How can we regularly, and reliably, analyze HO2 price movements? For this requirement, let’s write a function similar to  data_moments. Name this new function HO2_movement().
+
+
+```{r Writing Function}
+#First we are going to create a function that will automatically create the pivot table, xtable and data frame for future analysis. This function has default arguments of the NYH file and a default caption of Heating oil No.2: 1986- 2016
+HO2_movement <- function(file = "data/nyhh02.csv", 
+                        caption = "Heating Oil No. 2: 1986-2016"){
+    # The file is extracted from the manhattan site. It is also pasted to create a single string
+    file <- paste("https://turing.manhattan.edu/~wfoote01/finalytics/", file, sep = "")
+    # Reading the csv file and keeping the strings as string
+    HO2 <- read.csv(url(file), header = TRUE, stringsAsFactors = FALSE)
+    # Deleting the missing data
+    HO2 <- na.omit(HO2)
+    # using the log difference as percent change of returns
+    return <- as.numeric(diff(log(HO2$DHOILNYH)))
+    # Calculating the absolute value of the returns to measure volitility
+    size <- abs(return)
+    # Creating an empty character vector the length of return
+    direction <- character(length(return))
+    # Where percent change is greater than 0, put up in the character vector
+    direction[return > 0] <- "up"
+    # Where percent change is less than 0, put down in the character vector
+    direction[return < 0] <- "down"
+    # Where percent change is 0, put same in the character vector
+    direction[return == 0] <- "same"
+    # Converting the dates that were imported as string into the type date and deleting teh first index so it has same length as teh other columns
+    date <- as.Date(HO2$DATE[-1], "%m/%d/%Y")
+    # Converting the price to a number and deleting the first index because needs to be the same length of the other columns
+    price <- as.numeric(HO2$DHOILNYH[-1])
+    # Creating the data frame that has the data, price, return, size (absolute value of return), and  direction of returns
+    HO2.df <- data.frame(Date = date, Price = price, Return = return, Size = size, Direction = direction)
+    # importing the library to create the pivot tables
+    require(dplyr)
+    # Creating a grouped table that is grouped by the direction of returns
+    pivot.table <- group_by(HO2.df, Direction)
+    # Making all columns visible
+    options(dplyr.width = Inf)
+    # Seeing how many entries are in the table so a percentage can be gathered for each category
+    HO2.count <- length(HO2.df$Return)
+    # Creating the pivot table that returns the average return, return standard deviation, 5% quantile, 95% quantile, and the proportion of entries for positive,          negative, and no returns
+    pivot.table <- summarise(pivot.table, return.avg = mean(Return), return.sd = sd(Return), 
+                             quantile.5 = quantile(Return, 0.05), quantile.95 = quantile(Return, 0.95), 
+                             percent = length(Return) / HO2.count * 100)
+    require(xtable)
+    # Creating a nice LaTeX table of the transposed pivot table using the caption argument of the function
+    pivot.xtable <- xtable(t(pivot.table), # transposing the pivot table
+                           digits = 2, caption = caption, # Limiting to 2 digits, and wring the given caption
+                           align = rep("r", 4), table.placement = "V") # alligning the columns to the right
+    # Creating a list to contain all the woutputs of the function
+    output.list <- list(table = pivot.table, 
+                        xtable = pivot.xtable, df = HO2.df)
+    # Returning the output list
+    return(output.list)
+    }
+```
+
+
+Testing function
+
+```{r Testing Function}
+# We are now going to test to see if the function works, and knit the table to look nice
+knitr::kable(HO2_movement(file = "data/nyhh02.csv")$table, # knit table and extract the pivot table "table" from the output 
+    digits = 2) # Set teh table to display only two digits
+```
+
+## Question 3. Suppose we wanted to simulate future movements in HO2 returns. What distribution might we use to run those scenarios? Here, let’s use the MASS package’s fitdistr() function to find the optimal fit of the HO2 data to a parametric distribution. We will use the gamma distribution to simulate future heating oil #2 price scenarios.
+
+
+```{r Modeling Dristributions}
+# Importing the statistical package MASS
+library(MASS)
+# Using our function to convert the csv file into usable data and extracting the data frame from the list
+HO2.data <- HO2_movement(caption = "HO2 NYH")$df
+# Looking at the structure of the data frame
+# Date is as typr date, Price, Return, and Size are type numeric, and the Direction is a factor, "up", "down", and "same"
+str(HO2.data)
+# Now we will model the distribution of returns when the returns are positive
+# Using the fitdistr function in the MASS package, we will retrieve the estimated shape and scale for fitted gamm distribution of returns
+fit.gamma.up <- fitdistr(HO2.data[HO2.data$Direction == "up", "Return"], "gamma") # The rows with the direction being up are selected and choosing the return column
+# Displaying the shape and rate (inverse scale) of the estimated fitted gamma distribution
+fit.gamma.up
+# Not going to model the returns that are the same because all have a value of 0
+# Model the negative returns with the t-distribution
+# Using fitdistr from MASS, filtering instances that only have the "down" direction
+fit.t.down <- fitdistr(HO2.data[HO2.data$Direction == "down", "Return"], "t", hessian = T)
+# Looking at the mean, standard deviation, and degrees of freedom in the t-distribution of negative returns
+fit.t.down
+# Fitting a gamma distribution to the negative returns
+# Must make the negative returns positive by multiplying by -1 or use the size column of direction == 'down'
+fit.gamma.down <- fitdistr(-HO2.data[HO2.data$Direction == "down", "Return"], "gamma", hessian = TRUE)
+# Looking at the shape and the rate (inverse scale) of the distribution for negative returns
+fit.gamma.down
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
