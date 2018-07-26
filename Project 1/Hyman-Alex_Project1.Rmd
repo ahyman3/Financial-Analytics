@@ -4,9 +4,12 @@ author: "Alex Hyman"
 date: "7/13/2018"
 output: pdf_document
 ---
-# My questions
-1. Why is tolerance measured on the positive returns? If we have exposure in a stock, wouldn't we want the price to keep going up?
-2. 
+##My Notes
+* Heating Oil No. 2 is used in many of our investments. When the price goes up, the cost of producing products goes up
+* When HO2 is volatile, so are our easrnings
+* We would like to understand HO2 better so we can better forecast our earnings
+* We want to reflect the ups and downs of price movements
+
 #Assignment:
 1. Use headers (##), r-chunks for code, and text to build a report that addresses the two parts of this project.
 
@@ -18,16 +21,23 @@ output: pdf_document
 
 # Part 1: HO2 data preparation and exploration
 
- Data is provided by the turing.manhattan.edu website and is accessed via the url function. The following R block will read the data, ensuring that the DATE column is not read as a factor. We will also preview the data with the head function and clean the data with the na.omit function. The na.omit function will get rid of any rows that have NA as a value. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
+ Data is provided by the turing.manhattan.edu website and is accessed via the url function. The following R block will read the data, ensuring that the DATE column is not read as a factor. We will also preview the data with the head function and remove any pieces of partial data with the na.omit function. The na.omit function will get rid of any rows that have NA as a value in either column. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
+
+The R skills that are required in this block include:
+    * Reading files
+    * Previewing Data
+    * Cleaning Data
 
 
 ```{r Reading Data}
-# getting the data from online at https://turing.manhattan.edu/~wfoote01/finalytics/data/
-# reading the nyhh02.csv file
-HO2 <- read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/nyhh02.csv"), stringsAsFactors = F, header = T)
+# Getting the data from online at https://turing.manhattan.edu/~wfoote01/finalytics/data/
+# Reading the nyhh02.csv file
+# Setting strings as factors = FALSE so our dates remain as string, not factors
+HO2 <- read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/nyhh02.csv"),
+                stringsAsFactors = F, header = T)
 # Previewing the data
 head(HO2)
-# Omitting the na values in the data frame
+# Setting the new HO2 data frame to not include missing data
 HO2 <- na.omit(HO2)
 # looking at the structure of the data frames
 str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
@@ -35,11 +45,20 @@ str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
 
 
 
-## Question 1. What is the nature of HO2 returns? We want to reflect the ups and downs of price movements, something of prime interest to management. First, we calculate percentage changes as log returns. Our interest is in the ups and downs. To look at that we use if and else statements to define a new column called direction. We will build a data frame to house this analysis.
+## Question 1. What is the nature of HO2 returns?
 
+To evaluate the nature of returns, it is necessary to create visual graphics that tend to be simplier to process then looking at the data by itself. We will first create a line plot of the rate of returns and create a bar plot of the absolute value of teh rate of returns. The absolute value of the rate of returns will give us a better idea how volatile HO2 prices are, and by default, our volatile our earnings are.
 
-The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date).
+The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date). The direction column will be a factor with three levels: up, down, and same. These levels indicate whether the price has increased, decreased, or remained the same on a given day, compared to the previous day. This will allow us to separate the levels and conduct an analysis on each level.
 
+The R skills that are required in this block include:
+    * Data manipulation
+    * Vector Creation
+    * Date Formatting
+    * Indexing on conditionals
+    * Manipulating vectors
+    * Data Frame Creation
+    
 
 ```{r Cleaning Data}
 # Calculating difference of logs returns to calculate approximate percent change
@@ -67,22 +86,44 @@ HO2.df <- na.omit(data.frame(
 str(HO2.df)
 ```
 
-Firstly, we will plot the returns of HO2 overtime via the ggplot2 library and the ggplot function. The aesthetic inside the ggplot will have x set to the date and y set to the return. The geom_line will also be added to the ggplot and have the line color set to blue.
+Now that all of the data has been cleaned and stored in a manner that is function for analysis, we will plot the returns of HO2 over time via the ggplot2 library and the ggplot function. The aesthetic function inside the ggplot function will have set x to the date and set y to the return. The geom_line function will be added to the ggplot to create the line plot, and the colour argument inside the geom_line function will be set to blue to display the plot in an applealing manner.
+
+The R skills that are required in this block include:
+    * Plotting with ggplot
+    * Using geom_line function
+    * Displaying plots
 
 
 ```{r Plotting Returns}
+# Loading the ggplot2 library for graphics
 library(ggplot2)
+# Setting the variable p to the plot fo the returns over time
+# The ggplot function initializes the plot object, HO2.df is the data for the plot
+# aes function is setting the asthetic for the plot including x as the Date and y as the returns
+# The group = 1 argument sets all the data in the same group to ensure all data are plotted
+# The geom_line function is creating the line plot on the ggplot object with the colour set
+# to blue to display a blue line
 p <- ggplot(HO2.df, aes(x = Date, y = Return, group = 1)) + geom_line(colour = 'blue')
+# the p is printing out the ggplot object to actually see the plot
 p
 ```
 
-Next, we will create a bar plot of the absolute value of the percent returns. This will be done using the ggplot function with the Date as the X-axis and the absolute value of the percent returns as the y-axis. The plot is displyed as a bar chart, adding the geom_bar tool to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size over time.
+Next, we will create a bar plot of the absolute value of the rate of returns. This will be done using the ggplot function with the Date as the X-axis and the absolute value of the rate of returns as the y-axis. The plot is displyed as a bar chart, adding the geom_bar tool to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size of the absolute value of rate of returns over time.
+
+The R skills that are required in this block include:
+
 
 
 ```{r Plotting Size}
-# Using the bar chart tool from the ggplot function
+# Setting the variable p to the plot fo the returns over time
+# The ggplot function initializes the plot object, HO2.df is the data for the plot
+# aes function is setting the asthetic for the plot including x as the Date and y as the size
+# The group = 1 argument sets all the data in the same group to ensure all data are plotted.
+# The geom_bar function is used show the volatility in returns as a bar plot over time. The stat
+# argument is set to identity so the bar is the same size as the returns, and is not counting the 
+# number of entries
 p <- ggplot(HO2.df, aes(x = Date, y = Size, group = 1)) + 
-    geom_bar(stat = "identity", colour = "green") # Setting stat to identity so we do not show count data
+    geom_bar(stat = "identity", colour = "green") 
 p # Displaying the plot
 ```
 
@@ -90,9 +131,11 @@ Next, we will provide a plot that contains both the absolute value of the return
 
 
 ```{r Plotting Overlay}
-# Plotting the orange size of returns geom_bar plot first and then overlaying the blue geom_line plot to so only days that had negative returns will be visible in the plot. This is because the blue line would be below the x-axis and the absolute value is always positive
-p <- ggplot(HO2.df, aes(x = Date, y = Size)) +
+# Plotting the orange size of returns geom_bar plot first (on bottom) and then overlaying the blue geom_line plot so only days that had negative returns will be visible in orange on the plot. This is because the blue line would be below the x-axis and the absolute value in returns is always positive
+# Creating the ggplot object, setting the aesthetic X to the data and the size as the y
+p <- ggplot(HO2.df, aes(x = Date, y = Size)) + 
     geom_bar(stat = 'identity', colour = 'darkorange') +
+    # Drawing the line plot and making it the blue color
     geom_line(data = HO2.df, aes(x = Date, y = Return), colour = 'blue')
 p
 ```
@@ -193,18 +236,22 @@ Plotting the shapes of the positive and negative returns
 ```{r ECDF Plot}
 #Setting the tolerance to 5%
 HO2.tol.pct <- 0.95
-#Figuring out wht the 95th percentile of returns would be
+#Figuring out what the 95th percentile of returns would be
 HO2.tol <- quantile(HO2.df$Return, HO2.tol.pct)
 #Creating the label with the past function that says where our tolerable limit is
 HO2.tol.label <- paste("Tolerable Rate = ", round(HO2.tol, 2), sep = "")
-#Plotting the cumulative density function for negative, positive, and same returns. Same returns should be a straight line at zero. The tolerance will also be plotted on as a vertical red line
-ggplot(HO2.df, aes(Return, fill = Direction)) +  # starting the plot with returns as our data and a different density function for each direction
-    stat_ecdf(colour = "blue", size = 0.75) + # plotting the density functions in blue
+#Plotting the cumulative density function for negative, positive, and same returns. Same returns should be a straight line at zero, so we are filtering out when the direction is the same. The tolerance will also be plotted on as a vertical red line
+ggplot(HO2.df[HO2.df$Direction == "up" | HO2.df$Direction == "down",], aes(Return, colour = Direction)) +  
+    # starting the plot with returns as our data and a different density function for each direction
+    stat_ecdf(size = 0.75) + # plotting the density functions in blue
     geom_vline(xintercept = HO2.tol, # drawing a vertical redline at the tolerance limit
         colour = "red", size = 1.5) + 
     annotate("text", x = HO2.tol + 10, # adding the label to the plot
         y = 0.75, label = HO2.tol.label, 
         colour = "darkred")
+# Creating a plot that shows overall cumulative distribution
+ggplot(HO2.df, aes(Return)) + stat_ecdf(colour = "blue") + geom_vline(xintercept = HO2.tol, colour = "red", 
+    size = 0.75) + annotate("text", x = HO2.tol + 10, y = 0.75, colour = "darkred", label = HO2.tol.label)
 ```
 
 ## Question 2. How can we regularly, and reliably, analyze HO2 price movements? For this requirement, let’s write a function similar to  data_moments. Name this new function HO2_movement().
@@ -221,7 +268,7 @@ HO2_movement <- function(file = "data/nyhh02.csv",
     # Deleting the missing data
     HO2 <- na.omit(HO2)
     # using the log difference as percent change of returns
-    return <- as.numeric(diff(log(HO2$DHOILNYH)))
+    return <- as.numeric(diff(log(HO2$DHOILNYH))) * 100
     # Calculating the absolute value of the returns to measure volitility
     size <- abs(return)
     # Creating an empty character vector the length of return
@@ -299,8 +346,10 @@ fit.t.down
 fit.gamma.down <- fitdistr(-HO2.data[HO2.data$Direction == "down", "Return"], "gamma", hessian = TRUE)
 # Looking at the shape and the rate (inverse scale) of the distribution for negative returns
 fit.gamma.down
+# I want to fit a t-distribution for all returns
+t.dist.all <- fitdistr(HO2.data$Return, "t", hessian = T)
+t.dist.all
 ```
-
 
 
 
