@@ -1,34 +1,20 @@
 ---
 title: "Project 1: HO2 Analysis"
-author: "Alex Hyman"
+author: "Alex Hyman, Matt LaFlair, Robin Kim, Sasha Singh"
 date: "7/13/2018"
-output: pdf_document
+output: pdf_document 
 ---
-##My Notes
-* Heating Oil No. 2 is used in many of our investments. When the price goes up, the cost of producing products goes up
-* When HO2 is volatile, so are our easrnings
-* We would like to understand HO2 better so we can better forecast our earnings
-* We want to reflect the ups and downs of price movements
-
-#Assignment:
-1. Use headers (##), r-chunks for code, and text to build a report that addresses the two parts of this project.
-
-2. List in the text the ‘R’ skills needed to complete this project.
-
-3. Explain each of the functions (e.g., ggplot()) used to compute and visualize results.
-
-4. Discuss how well did the results begin to answer the business questions posed at the beginning of each part of the project.
+# Introduction
+The supply chain manager have notified us that our company has significant exposure to heating oil prices, specifically New York Harbor. The price of the heating oil affects the variable cost of multiple products, and can therefore affect our bottomline. When heating oil is volatile, so are our earnings. The purpose of this project is to explore the New York Harbors dataset and gain a better understanding of how the heating oil prices behave.
 
 # Part 1: HO2 data preparation and exploration
+Data for the price of New York Harbors is provided by the turing.manhattan.edu website. Data exploration will be conducted with R. Using the url function, the dataset of the prices for New York Harbors from 1986-2016 will be loaded into R. The following R block will read the data, and ensure that the DATE column is not read as a factor. Data from the dataset will also be previewed with the head function and any pieces of missing or partial data will be removed with the na.omit function. The na.omit function will get rid of any rows that have NA as a value in either column. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
 
- Data is provided by the turing.manhattan.edu website and is accessed via the url function. The following R block will read the data, ensuring that the DATE column is not read as a factor. We will also preview the data with the head function and remove any pieces of partial data with the na.omit function. The na.omit function will get rid of any rows that have NA as a value in either column. Finally, the structure of the data frame is viewed to ensure the data is set up as we wish.
+The R skills that are required in this block include: 
 
-The R skills that are required in this block include:
-    * Reading files
-    * Previewing Data
-    * Cleaning Data
-
-
+* Reading files 
+* Previewing Data 
+* Cleaning Data
 ```{r Reading Data}
 # Getting the data from online at https://turing.manhattan.edu/~wfoote01/finalytics/data/
 # Reading the nyhh02.csv file
@@ -45,21 +31,17 @@ str(HO2) # Two columns, DATE is a character, DHOILNYH is a numeric column
 
 
 
-## Question 1. What is the nature of HO2 returns?
+## Question 1 - Nature of HO2 Returns
+To evaluate the nature of returns, it is necessary to create visual graphics. Plots of data tend to be simpler to process than viewing the data by itself. To model the daily changes in prices, the log difference between consecutive data points will provide the percent change in price. To model the volatility of heating oil prices, the absolute value of the percent change will be taken. Finally, percent changes in price will eventually need to be separated in order to evaluate the behavior of the price when the percent returns is negative versus positive. Each instance in the data frame will be labeled as “up”, “down”, or “same” based on whether returns were positive, negative, or remained unchanged.
 
-To evaluate the nature of returns, it is necessary to create visual graphics that tend to be simplier to process then looking at the data by itself. We will first create a line plot of the rate of returns and create a bar plot of the absolute value of teh rate of returns. The absolute value of the rate of returns will give us a better idea how volatile HO2 prices are, and by default, our volatile our earnings are.
+The R skills that are required in this block include: 
 
-The following block of R code will take the time series pricing data we collected previously and convert it into a data frame with columns including the date, percent returns, magnitude of returns, direction, and the price. The data frame will have three numeric columns (price, returns, size), one factor column (direction), and one date column (Date). The direction column will be a factor with three levels: up, down, and same. These levels indicate whether the price has increased, decreased, or remained the same on a given day, compared to the previous day. This will allow us to separate the levels and conduct an analysis on each level.
-
-The R skills that are required in this block include:
-    * Data manipulation
-    * Vector Creation
-    * Date Formatting
-    * Indexing on conditionals
-    * Manipulating vectors
-    * Data Frame Creation
-    
-
+* Data manipulation 
+* Vector Creation 
+* Date Formatting 
+* Indexing on conditionals 
+* Manipulating vectors 
+* Data Frame Creation
 ```{r Cleaning Data}
 # Calculating difference of logs returns to calculate approximate percent change
 return <- as.numeric(diff(log(HO2$DHOILNYH))) * 100
@@ -86,15 +68,14 @@ HO2.df <- na.omit(data.frame(
 str(HO2.df)
 ```
 
-Now that all of the data has been cleaned and stored in a manner that is function for analysis, we will plot the returns of HO2 over time via the ggplot2 library and the ggplot function. The aesthetic function inside the ggplot function will have set x to the date and set y to the return. The geom_line function will be added to the ggplot to create the line plot, and the colour argument inside the geom_line function will be set to blue to display the plot in an applealing manner.
+Now that all of the data has been cleaned and stored in a manner that is function for analysis, we will plot the returns of HO2 over time via the ggplot2 library and the ggplot function. The aesthetic function inside the ggplot function will set x-axis of the plot to the date and set y-axis to the return. The geom_line function will be added to the ggplot to draw the line plot, and the colour argument inside the geom_line function will be set to blue to display the plot as a blue line plot.
 
-The R skills that are required in this block include:
-    * Plotting with ggplot
-    * Using geom_line function
-    * Displaying plots
+The R skills that are required in this block include: 
 
-
-```{r Plotting Returns}
+* Plotting with ggplot 
+* Using geom_line function 
+* Displaying plots
+```{r Plotting Returns, fig.cap="\\label{fig:Plotting Returns}HO2 Returns"}
 # Loading the ggplot2 library for graphics
 library(ggplot2)
 # Setting the variable p to the plot fo the returns over time
@@ -108,13 +89,16 @@ p <- ggplot(HO2.df, aes(x = Date, y = Return, group = 1)) + geom_line(colour = '
 p
 ```
 
-Next, we will create a bar plot of the absolute value of the rate of returns. This will be done using the ggplot function with the Date as the X-axis and the absolute value of the rate of returns as the y-axis. The plot is displyed as a bar chart, adding the geom_bar tool to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size of the absolute value of rate of returns over time.
+A first glance analysis of plot of heating oil returns in Figure 1 suggests that there is a large amount of volatility clustering, specifically in the early 1990’s and the early 2000’s. There are also some less extreme clusters in the mid-1980’s, mid-1990’s, late 2000’s, and in mid 2010’s. The plot of HO2 returns also suggests that when HO2 returns are extremely volatile, there is a more dramatic downward spike in prices than an upward spike in the prices.
+
+Next, we will create a bar plot of the absolute value of the returns to visualize the volatility of heating oil. This will be done using the ggplot function and the geom_bar function. The aesthetic function inside the ggplot function will set x-axis of the plot to the date and set y-axis to the absolute value of returns. The plot is displayed as a bar chart, which can be done by adding the the geom_bar function to the ggplot. Because we are not interested in count data, the stat argument within the geom_bar tool is set to identity to show the actual size of the absolute value of rate of returns over time.
 
 The R skills that are required in this block include:
 
-
-
-```{r Plotting Size}
+* Plotting with ggplot 
+* Using geom_line function 
+* Displaying plots
+```{r Plotting Size, fig.cap="\\label{fig:Plotting Returns}Absolute value of HO2 Returns"}
 # Setting the variable p to the plot fo the returns over time
 # The ggplot function initializes the plot object, HO2.df is the data for the plot
 # aes function is setting the asthetic for the plot including x as the Date and y as the size
@@ -127,10 +111,16 @@ p <- ggplot(HO2.df, aes(x = Date, y = Size, group = 1)) +
 p # Displaying the plot
 ```
 
-Next, we will provide a plot that contains both the absolute value of the returns in an orange color and the actual returns in blue. Wherever the orange line is visible, the returns were negative for that day. 
+The bar chart of the absolute value of returns displayed in Figure 2 supports our initial analysis that the returns for heating oil prices are extremely volatile and clustered. On multiple occasions there seems to consecutive days with a 10% or greater change in price. While this plot does not provide context of which returns are positive or negative, it does suggest that extreme changes in price are soon followed by other extreme changes in price in either direction.
 
+Finally, we will create a plot that contains both the absolute value of the returns in an orange color and the actual returns in blue. This is can be accomplished by first adding the geom_bar function to ggplot placing it on the ggplot object first, and then adding the geom_line plot after, essentially placing the line plot on top of the bar chart.
 
-```{r Plotting Overlay}
+The R skills that are required in this block include:
+
+* Creating figures with ggplot
+* Stacking plots to create overlays
+* Displaying plots
+```{r Plotting Overlay, fig.cap="\\label{fig:Plotting Returns}Overlay of HO2 Returns and Absolute value of HO2 Returns"}
 # Plotting the orange size of returns geom_bar plot first (on bottom) and then overlaying the blue geom_line plot so only days that had negative returns will be visible in orange on the plot. This is because the blue line would be below the x-axis and the absolute value in returns is always positive
 # Creating the ggplot object, setting the aesthetic X to the data and the size as the y
 p <- ggplot(HO2.df, aes(x = Date, y = Size)) + 
@@ -140,17 +130,27 @@ p <- ggplot(HO2.df, aes(x = Date, y = Size)) +
 p
 ```
 
+The plots provided in Figure 3 give us further insight on the behavior of negative and positive returns. When the orange bar is visible, the returns were negative for that day. With this in mind, we can see that Figure 3 confirms our suspicion that extreme prices changes in HO2 prices can be followed by another extreme change in price, but in an either positive or negative direction. Figure 3 also informs us that when there are extreme changes in the price of HO2, when the returns are negative, they tend to be slightly greater than the positive returns in that particular volatility cluster. While this has generally been the trend, the most recent volatility cluster in the 2015-2016 time range has had a higher absolute value for positive returns than negative returns.
 
+## Question 2 - Data Moments
+To further understand the nature of the HO2 returns, some descriptive statistics of the heating oil returns will be calculated. These descriptive statistics will begin our understanding of the distribution of heating oil returns. The statistics that will be calculated on the HO2 returns include: 
 
-## Question 2 - Let’s dig deeper and compute mean, standard deviation, etc. Load the data_moments() function. Run the function using the HO2.df$return subset of the data and write a knitr::kable() report.
-Next an analysis of the returns will be conducted. This analysis will include the:
-    * Mean
-    * Standard Deviation
-    * Median
-    * Skewness
-    * Kurtosis
+* Mean
+* Median 
+* Standard Deviation
+* Kurtosis 
+* Skewness 
 
+The mean and median of the HO2 returns will provide us an understanding of the center of the distribution, or what we can expect for the long-term. The standard distribution will give us a numerical value to give some context to the actual volatility of the heating oil returns. The kurtosis of the distribution will provide an understanding of how large the tails of the distribution, or the commonality/magnitude of extreme events. A kurtosis greater than 3 would indicate that extreme events are more common or greater in magnitude in this distribution than a normal distribution. Finally, the skewness of the distribution will indicate which side of the distribution are the extreme events more likely to occur, or which side of the distribution has higher magnitude extreme events. If the skewness of the distribution is positive, then there are more smaller decreases to the price, and some extreme increases in price. If the skewness of the distribution is negative, then there are more smaller increases to the price, and some extreme decreases in price. 
 
+The following block of R code will create a function that will calculate each of these data moments for any provided set of data and return them in a data frame. A function is being used in this instance so the same calculations can be repeated multiple times without having to re-write the code. The R skills that are required in this block include:
+
+* Creating function
+* Basic statistics
+* Loading packages
+* Creating data frames
+* Indexing columns of data frames
+* Using knitr to display tables
 ```{r Data Moments}
 # Creating a function to calculate all the analysis data listed above
 data_moments <- function(data) {
@@ -179,12 +179,22 @@ answer <- data_moments(HO2.df$Return)
 # Rounding our data frame to only four decimal points
 answer <- round(answer, 4)
 # Creating table for display
-knitr::kable(answer)
+knitr::kable(answer, caption = 'Data Moments of Heating Oil Returns')
 ```
 
-## Question 3 - Let’s pivot size and return on direction. What is the average and range of returns by direction? How often might we view positive or negative movements in HO2?
-To gain a better understanding of how the returns behave, we will make a summary table that provides the average returns, standard deviation of returns, 5th percentile, 95th percentile, and the percentage of instances for each of the three different returns categories ("up", "down", "same"). Logically, the returns that are the same should have an average of zero, standard deviation of zero, and 
+The data moments provided in Table 1 shows that the returns of heating oil are centered around approximately zero, which is about what we would expect (median = 0, mean = 0.0179). Because the mean is slightly greater than the median, initial analysis would assume that the distribution could be positively skewed, but because there is a miniscule difference between the two measures of centrality, the skewness will provide a better picture of the actual nature of the skew. The distribution also has a standard deviation of 2.52%, which means that approximately 95% of the daily changes to the price of heating oil is between -5% and 5%. A standard deviation this large confirms our initial analysis from the previous plots that the prices for heating oil is quite volatile. The kurtosis of the heating oil returns is an extremely high value of 38.26, suggesting that there are significantly more events along the tails of the distribution of heating oil returns compared to a normal distribution and that the magnitude of these events is quite large. The skewness of the heating oil returns is also a very large value of -1.44. This skewness means that there is a significant negative skewness to the price of heating oil returns, meaning that there are either more extreme events on the negative side of the distribution than the positive side of the distribution or that the extreme negative returns are larger in magnitude than the positive returns. 
 
+Because the kurtosis and skewness statistics are extreme numbers, trying to estimate earnings could be quite difficult; however, because the distribution is negatively skewed, some of these extreme changes in price could be to our benefit, as this would give us reason to believe that when the prices are very volatile, the extreme changes in price are in our favor (price going down). Due to this heavy negative tail, it could be beneficial to alter our supply chain strategy and when we see an extreme decrease in the price of heating oil, either order in bulk for multiple shipments in the future instead of on an as-needed basis.
+
+## Question 3 - Pivot on Direction
+To gain a better understanding of how both the positive and negative returns behave, we will create a summary table that provides the average returns, standard deviation of returns, 5th percentile, 95th percentile, and the percentage of instances for each of the three different returns categories ("up", "down", "same"). Logically, the returns that are the same should have an average of zero, standard deviation of zero, and both quantiles equal to zero. The pivot table for when returns are negative or positive will provide even more context into how the returns are distributed and give some more insight in how the tails of the distribution are behaving. The means provided in the pivot table will give an average for negative and positive returns. The standard deviation along with the 5% and 95% quantile will provide the middle 90% interval for the range of returns. Finally, the percentage of positive, negative, and same distribution will provide an idea of how likely it is for price to remain increase, decrease, or remain the same.
+
+This block of R code will first provide counts of instances the price increased, decreased, and remained the same. It will then group the data frame by the “Direction” factor and calculate the average, standard deviation, 5th and 95th quantile, and percentage of instances using the summarise function in the dplyr package. The R skills that are required in this block include:
+
+* Using the table function to get count data
+* Pivot tables
+* Descriptive statistics with R
+* Formatting tables for displays
 ```{r Pivot Table, results="asis"}
 #Set results to "asis" from karl broman from kbroman.org
 #Count number of results less than 0 (equal to zero is false)
@@ -212,28 +222,37 @@ pivot.table <- summarise(pivot.table,
                          percent = round(length(Return) / HO2.count, 4) * 100
                          )
 #Displaying the pivot table
-knitr::kable(pivot.table, digits = 2)
+knitr::kable(pivot.table, digits = 2, caption = 'HO2 Returns Pivot Table by Direction')
 #Importing the xtable library
 library(xtable)
 #Initializing the caption for another table
 HO2.caption <- "Heating Oil No. 2: 1986 - 2016"
 #Printing the pivot table in LaTeX
-print(xtable(t(pivot.table), digits = 2, caption = HO2.caption, align = rep("r", 4), table.placement = "V"))
+print(xtable(t(pivot.table), digits = 2, caption = HO2.caption, align = rep("r", 4), table.placement = "V"), caption.placement = "top")
 #Printing the details of all the returns
-print(xtable(answer), digits = 2)
+print(xtable(answer, caption = "Total Distribution of HO2 Returns", caption.placement = "top"), digits = 2, caption.placement = "top")
 ```
+Table 2 and Table 3 provide a pivot table for the heating oil returns with categories "up", "same”, and “down” indicating the direction of the price change. Because the returns in the “same” category have values of zero for their statistics, they will be excluded from this discussion. 
 
+Tables 2 and 3 show that the average returns when the price has increased is 1.76% while the average returns when the price has decreased is -1.77%, showing a fairly similar central tendency. The difference between the two categories becomes more apparent when looking at the standard deviation of returns. Negative returns have a standard deviation of 1.99% while positive returns have a standard deviation of 1.75%. This shows that the negative returns have a greater spread than positive returns, even to the point where it would be impossible for a daily negative return to be greater than one standard deviation from the mean (negative returns must be less than 0).
 
-# Part 2: HO2 analysis
-## Question 1. How can we show the differences in the shape of ups and downs in HO2, especially given our tolerance for risk? We can use the HO2.df data frame with ggplot2 and the cumulative relative frequency function stat_ecdf to begin to understand this data.
+It becomes even more apparent that the extremes of the negative returns are more significant than the extremes of the positive returns when observing the comparable quantiles in conjunction with the standard deviation. The middle 90% of positive returns has a larger spread in values than the middle 90% of negative returns (0.1817 to 4.8203 vs. -0.1894 to -4.776). While the spread of the middle 90% is larger for positive returns than negative returns, knowing that the standard deviation for negative returns is greater than the positive returns must mean that there are more values extreme in magnitude at the tail of the negative returns distribution than are at the tail of the positive returns distribution.
 
+Finally, we note that 48.86% of days result in heating oil increasing in price versus the 47.52% of days that result in a decrease in the price of heating oil (3.63% have no price change). This would signify that there is approximately an equal chance the price of heating oil will increase as there is the price will decrease. With the mean of returns centered around zero, and our knowledge of the central limit theorem, if heating oil prices are particularly high on a given day, given that the need for heating oil is not urgent, we can expect the price of oil to return to a manageable price in the near future.
 
+# Part 2: HO2 Distribution
 
-## Further questions as needed
-Plotting the shapes of the positive and negative returns
- 
- 
-```{r ECDF Plot}
+## Question 1. Differences in Shape
+To further understand how the positive returns behave differently than the negative returns, it can be helpful to create a cumulative distribution function for both the negative and positive returns. The cumulative distribution will provide display what percentage of returns are below a given value for both the negative and positive returns. A cumulative distribution function can also be created for all the returns to provide a whole picture on the shape of the distribution. The cumulative distribution function for “same” returns was not included in this section because it would be a vertical line at X = 0, which would clutter the plot.  The R skills that are required in this block include:
+
+* Using the quantile function
+* Manipulating text with the paste function
+* Plotting with ggplot
+* Creating cumulative distribution function for different factors
+* Creating vertical lines
+* Adding annotations to ggplot objects
+* Using the or statement
+```{r ECDF Plot, fig.cap=c("Cumulative Distribution Function by Direction", "Total Returns Cumulative Distribution")}
 #Setting the tolerance to 5%
 HO2.tol.pct <- 0.95
 #Figuring out what the 95th percentile of returns would be
@@ -248,20 +267,44 @@ ggplot(HO2.df[HO2.df$Direction == "up" | HO2.df$Direction == "down",], aes(Retur
         colour = "red", size = 1.5) + 
     annotate("text", x = HO2.tol + 10, # adding the label to the plot
         y = 0.75, label = HO2.tol.label, 
-        colour = "darkred")
+        colour = "darkred") + theme(legend.position = "top")
 # Creating a plot that shows overall cumulative distribution
-ggplot(HO2.df, aes(Return)) + stat_ecdf(colour = "blue") + geom_vline(xintercept = HO2.tol, colour = "red", 
-    size = 0.75) + annotate("text", x = HO2.tol + 10, y = 0.75, colour = "darkred", label = HO2.tol.label)
+ggplot(HO2.df, aes(Return)) + stat_ecdf(colour = "blue") + geom_vline(xintercept = HO2.tol, colour = "red", size = 0.75) + annotate("text", x = HO2.tol + 10, y = 0.75, colour = "darkred", label = HO2.tol.label) 
 ```
 
-## Question 2. How can we regularly, and reliably, analyze HO2 price movements? For this requirement, let’s write a function similar to  data_moments. Name this new function HO2_movement().
+The plot provided in Figure 4 shows the differences in shape between the positive and negative returns. The tolerable risk at the 95% quantile is also provided on the plot in a dark red vertical line, indicating where the cost could be prohibitive for the company to move forward. 
 
+The cumulative distribution function for the negative returns seem to become noticeable around the -11% returns and begins to rapidly increase in slope around the -5% returns. The slope continues to sharply increase until all the negative values have been accounted for at 0. Because the mean of the entire distribution is near 0, analysis of the positive returns should be conducted starting at -inf and working towards 0, with the cumulative distribution being 1 - y. With this in mind, positive returns begin to separate from 0 around 14% with the slope beginning to increase rapidly around 5%. 
 
+One key difference in the nature of the positive returns versus the negative returns is that elbow in the negative returns is more gradual than that of the positive returns. This behavior is consistent the fact that there was a greater standard deviation for the negative returns than positive returns.
+
+Additionally, Figure 5 is a cumulative distribution function for all returns. This plot is more consistent with what is expected for a fairly symmetrical plot that is centered around 0. The tolerable rate is also provided to give greater context to the 95% quantile. It is also noteworthy that the leftmost x-limit begins around -50 compared to the rightmost x-limit of 25. This is because the extreme events for negative returns were greater in magnitude than the positive returns.
+
+Using the plots and our tolerable rate of returns, we can look at recent data (due to inflation) and find the mean price of heating oil for that period. If the current price is greater than 3.6% of the mean price, we should attempt to wait for a decrease in price within 3.6% of the mean, unless there is a dire need for heating oil.
+
+## Question 2. Repeatable Data Analysis
+
+To reduce the amount to time spent coding for future analysis of other variable costs (or another HO2 vendor), we can create a function that can produce the same data frame, pivot table, and formatted pivot table given that we have data formatted in the same manner that the New York Harbors price data was formatted. The R skills that are required in this block include:
+
+* Reading a file
+* Writing functions
+* Creating vectors
+* Mathematical operations on vectors
+* Vector indexing
+* Date formatting
+* Data frame creating
+* Pivot tables with dplyr
+* Determining quantiles
+* Creating LaTeX tables with xtable
+* Creating lists
 ```{r Writing Function}
-#First we are going to create a function that will automatically create the pivot table, xtable and data frame for future analysis. This function has default arguments of the NYH file and a default caption of Heating oil No.2: 1986- 2016
+#First we are going to create a function that will automatically create the pivot table, xtable
+#and data frame for future analysis. This function has default arguments of the NYH file and
+#default caption of Heating oil No.2: 1986- 2016
 HO2_movement <- function(file = "data/nyhh02.csv", 
                         caption = "Heating Oil No. 2: 1986-2016"){
-    # The file is extracted from the manhattan site. It is also pasted to create a single string
+    # The file is extracted from the manhattan site. It is also pasted to create a single
+    # string
     file <- paste("https://turing.manhattan.edu/~wfoote01/finalytics/", file, sep = "")
     # Reading the csv file and keeping the strings as string
     HO2 <- read.csv(url(file), header = TRUE, stringsAsFactors = FALSE)
@@ -279,29 +322,41 @@ HO2_movement <- function(file = "data/nyhh02.csv",
     direction[return < 0] <- "down"
     # Where percent change is 0, put same in the character vector
     direction[return == 0] <- "same"
-    # Converting the dates that were imported as string into the type date and deleting teh first index so it has same length as teh other columns
+    # Converting the dates that were imported as string into the type date and deleting teh
+    # first index so it has same length as teh other columns
     date <- as.Date(HO2$DATE[-1], "%m/%d/%Y")
-    # Converting the price to a number and deleting the first index because needs to be the same length of the other columns
+    # Converting the price to a number and deleting the first index because needs to be the
+    # same length of the other columns
     price <- as.numeric(HO2$DHOILNYH[-1])
-    # Creating the data frame that has the data, price, return, size (absolute value of return), and  direction of returns
-    HO2.df <- data.frame(Date = date, Price = price, Return = return, Size = size, Direction = direction)
+    # Creating the data frame that has the data, price, return, size (absolute value of
+    # return), and  direction of returns
+    HO2.df <- data.frame(Date = date, Price = price, Return = return, 
+                         Size = size, Direction = direction)
     # importing the library to create the pivot tables
     require(dplyr)
     # Creating a grouped table that is grouped by the direction of returns
     pivot.table <- group_by(HO2.df, Direction)
     # Making all columns visible
     options(dplyr.width = Inf)
-    # Seeing how many entries are in the table so a percentage can be gathered for each category
+    # Seeing how many entries are in the table so a percentage can be gathered for each
+    # category
     HO2.count <- length(HO2.df$Return)
-    # Creating the pivot table that returns the average return, return standard deviation, 5% quantile, 95% quantile, and the proportion of entries for positive,          negative, and no returns
-    pivot.table <- summarise(pivot.table, return.avg = mean(Return), return.sd = sd(Return), 
-                             quantile.5 = quantile(Return, 0.05), quantile.95 = quantile(Return, 0.95), 
+    # Creating the pivot table that returns the average return, return standard deviation, 5%
+    # quantile, 95% quantile, and the proportion of entries for positive,negative, and no          # returns
+    pivot.table <- summarise(pivot.table, return.avg = mean(Return), 
+                             return.sd = sd(Return), 
+                             quantile.5 = quantile(Return, 0.05), quantile.95 =
+                              quantile(Return, 0.95), 
                              percent = length(Return) / HO2.count * 100)
     require(xtable)
-    # Creating a nice LaTeX table of the transposed pivot table using the caption argument of the function
+    # Creating a nice LaTeX table of the transposed pivot table using the caption argument of
+    # the function
     pivot.xtable <- xtable(t(pivot.table), # transposing the pivot table
-                           digits = 2, caption = caption, # Limiting to 2 digits, and wring the given caption
-                           align = rep("r", 4), table.placement = "V") # alligning the columns to the right
+                           digits = 2, caption = caption, 
+                           # Limiting to 2 digits, and wring the
+                           #given caption
+                           # alligning the columns to the right
+                           align = rep("r", 4), table.placement = "V") 
     # Creating a list to contain all the woutputs of the function
     output.list <- list(table = pivot.table, 
                         xtable = pivot.xtable, df = HO2.df)
@@ -310,18 +365,24 @@ HO2_movement <- function(file = "data/nyhh02.csv",
     }
 ```
 
-
-Testing function
-
+After creating a function, it is important test the function to confirm that is performs how it is supposed to. The following block of R code will run the function and extract the pivot table from the returned list. The pivot table will be displayed with the knitr tool. Writing functions for data analysis can save significant time in data processing and cleaning step.
 ```{r Testing Function}
 # We are now going to test to see if the function works, and knit the table to look nice
-knitr::kable(HO2_movement(file = "data/nyhh02.csv")$table, # knit table and extract the pivot table "table" from the output 
-    digits = 2) # Set teh table to display only two digits
+knitr::kable(HO2_movement(file = "data/nyhh02.csv")$table, 
+             # knit table and extract the pivot table "table" from the output 
+    digits = 2) # Set the table to display only two digits
 ```
 
-## Question 3. Suppose we wanted to simulate future movements in HO2 returns. What distribution might we use to run those scenarios? Here, let’s use the MASS package’s fitdistr() function to find the optimal fit of the HO2 data to a parametric distribution. We will use the gamma distribution to simulate future heating oil #2 price scenarios.
+## Question 3. Distribution Modeling
+While the returns of heating oil prices are random, they are likely to be random within a particular distribution. Finding the distribution that fits these returns would be helpful in modeling price scenarios of a significant variable cost. In turn, these distributions would help determine a better pricing model for our product.
 
+The following block of R code will import the MASS library for statistical analysis, and attempt to find the distribution of negative returns, positive returns, and all returns. We will use the gamma distribution in an attempt to model both positive and negative returns. In the future, we could also see how the returns would fit a lognormal distribution. We will also attempt to fit the distribution of negative returns with both the Student’s t-distribution and the gamma distribution. Finally, we will look try and fit a Student’s t-distribution to all of the returns to see what the shape of all returns looks like. 
 
+The R skills that are required in this block include:
+
+* Using the fitdistr function to estimate a distribution
+* Indexing data based on a factor
+* Indexing data frame columns
 ```{r Modeling Dristributions}
 # Importing the statistical package MASS
 library(MASS)
@@ -335,6 +396,10 @@ str(HO2.data)
 fit.gamma.up <- fitdistr(HO2.data[HO2.data$Direction == "up", "Return"], "gamma") # The rows with the direction being up are selected and choosing the return column
 # Displaying the shape and rate (inverse scale) of the estimated fitted gamma distribution
 fit.gamma.up
+# lognormal fit for positive returns
+fit.lnorm.up <- fitdistr(HO2.data[HO2.data$Direction == "up", "Return"], "lognormal")
+# lognormal fit for negative returns
+fit.lnorm.down <- fitdistr(-HO2.data[HO2.data$Direction == "down", "Return"], "lognormal")
 # Not going to model the returns that are the same because all have a value of 0
 # Model the negative returns with the t-distribution
 # Using fitdistr from MASS, filtering instances that only have the "down" direction
@@ -351,18 +416,8 @@ t.dist.all <- fitdistr(HO2.data$Return, "t", hessian = T)
 t.dist.all
 ```
 
+The first thing that is noticeable about the gamma distributions is that the gamma distribution for positive returns is nearly identical to the gamma distribution of negative returns. This would mean that the analysis on positive returns could also be true of the negative returns. Using these distribution parameters, we could conduct some monte carlo simulations to find out if the prices were to increase by a significant amount, how bad could it be. I we decided to run the analysis with a lognormal distribution instead, we could account for even more extreme events.
 
-
-
-
-
-
-
-
-
-
-
-
-
+The t distribution that was fit for negative returns can help model the fat end of the gamma distribution to provide insight of what we can expect for a typical day of negative returns. Finally, the fit for the t-distribution for all return data can be used to project the returns for a typical day. This is because we figure that returns are somewhat normally distributed around the mean on a given day.
 
 
