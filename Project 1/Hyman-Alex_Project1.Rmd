@@ -412,7 +412,7 @@ t.dist.all <- fitdistr(HO2.data$Return, "t", hessian = T)
 t.dist.all
 ```
 
-The first thing that is noticeable about the gamma distributions is that the gamma distribution for positive returns is nearly identical to the gamma distribution of negative returns. This would mean that the analysis on positive returns could also be true of the negative returns. Using these distribution parameters, we could conduct some monte carlo simulations to find out if the prices were to increase by a significant amount, how bad could it be. I we decided to run the analysis with a lognormal distribution instead, we could account for even more extreme events.
+The first thing that is noticeable about the gamma distributions is that the gamma distribution for positive returns is nearly identical to the gamma distribution of negative returns. This would mean that the analysis on positive returns could also be true of the negative returns. Using these distribution parameters, we could conduct some monte carlo simulations to find out if the prices were to increase by a significant amount, how bad could it be. If we decided to run the analysis with a lognormal distribution instead, we could account for even more extreme events.
 
 The t distribution that was fit for negative returns can help model the fat end of the gamma distribution to provide insight of what we can expect for a typical day of negative returns. Finally, the fit for the t-distribution for all return data can be used to project the returns for a typical day. This is because we figure that returns are somewhat normally distributed around the mean on a given day.
 
