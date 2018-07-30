@@ -396,10 +396,6 @@ str(HO2.data)
 fit.gamma.up <- fitdistr(HO2.data[HO2.data$Direction == "up", "Return"], "gamma") # The rows with the direction being up are selected and choosing the return column
 # Displaying the shape and rate (inverse scale) of the estimated fitted gamma distribution
 fit.gamma.up
-# lognormal fit for positive returns
-fit.lnorm.up <- fitdistr(HO2.data[HO2.data$Direction == "up", "Return"], "lognormal")
-# lognormal fit for negative returns
-fit.lnorm.down <- fitdistr(-HO2.data[HO2.data$Direction == "down", "Return"], "lognormal")
 # Not going to model the returns that are the same because all have a value of 0
 # Model the negative returns with the t-distribution
 # Using fitdistr from MASS, filtering instances that only have the "down" direction
