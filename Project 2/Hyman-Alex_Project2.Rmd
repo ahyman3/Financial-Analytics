@@ -1,0 +1,134 @@
+---
+title: 'Project 2: Foreign Exchange Markets'
+author: "Alex Hyman, Matt LaFlair, Robin Kim, Sasha Singh"
+date: "8/5/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+The marketing and accounts receivable managers at our company notify us that we have significant exposure to exchange rates. Our functional currency is U.S Dollars (USD), but we operate in the United Kingdom, European Union, and Japan. The exposure to exchange rates hits the gross revenue of out financial lines.
+
+Our cash flow is also affected by the ebb and flow of accounts receivable components of working capital in producing and selling several products. When the exchange rates are volatile, so are our earnings. The goal of this project is to explore the relationships between the different markets to get a better understanding of how our earnings are affected by the exchange markets. This is especially important as we have missed our earnings forecasts for five consecutive quarters.
+
+# Part 1
+## Importing the Data
+
+First, we will load in time series data of the exchange rates for the European, United Kingdom, Chinese, and Japanese markets. We will obtain the csv file from the turing.manhattan.edu website and view the structure and a sample of the exchange rates file.
+
+```{r Loading Data}
+library(zoo)      #For creating time series objects
+library(xts)      #For time series analysis
+library(ggplot2)  #For creating graphics
+library(plotly)
+
+#The URL for the exchange data data
+URL <- "https://turing.manhattan.edu/~wfoote01/finalytics/data/exrates.csv"
+
+#Reading in the exchange rates and omitting the missing data from the 
+#url provided by turing.manhattan.edu and keeping the dates as characters
+exrates <- na.omit(read.csv(url(URL), stringsAsFactors = F))
+#Converting the string dates to actual dates
+exrates$DATE <- as.Date(exrates$DATE, "%m/%d/%Y")
+
+#Five columns (date, eur2usd, gbp2usd, cny2usd, jpy2usd)
+#the data is daily exchange rates
+head(exrates)     #Looking at the data
+tail(exrates)     #Looking at the end of the data
+str(exrates)      #Viewing the structure of the data
+#1253 different instances of exchange rates
+summary(exrates)  #From 28 Jan 2013 to 26 Jan 2018
+# USD to CNY appears to be the most steady
+```
+
+## Question 1: Nature of Exchange Rates
+Becuase we are interested in how each exchange rate changes over time we will want to look at how the different exchange rates appreciate and depreciate. To calculate the appreciation and depreciation over time, we will use the log difference technique. These calculated numbers will be in the units of percent change.
+
+```{r Appreciate and Depreciation}
+#Using the properties of the natural log to determine
+#the percent change in exchange rates
+exrates.r <- diff(log(as.matrix(exrates[,-1]))) * 100
+head(exrates.r)   #first 6 days of percent change
+tail(exrates.r)   #last 6 days of percent change
+str(exrates.r)    #Shows there are 4 columns with 1252 instances
+#creating a matrix for the volatility of the exchange markets
+size <- na.omit(abs(exrates.r))
+head(size)        #viewing the first 6 rows of the size matrix
+#Creating a vector of names for the matrix that has the same name as
+#the exrates matrix, but with ".size" appended at the end
+colnames(size) <- paste(colnames(size), ".size", sep = "")
+#viewing the first six rows exchange rates size matrix
+head(size)
+#Creating an empty matrix with the dimensions of exrates.r
+direction <- exrates.r
+direction[exrates.r > 0] <- 1     #setting the matrix > 0 = 1
+direction[exrates.r < 0] <- -1    #setting the matrix > 0 = -1
+direction[exrates.r == 0] <- 0    #setting the matrix == 0 = 0
+#setting the column names to the exchange market with ".dir" appended
+colnames(direction) <- paste(colnames(exrates.r), ".dir", sep = "")
+
+#Converting into a time series object
+#Vector of only dates
+#removing the first index of the dates because of the diff function
+dates <- exrates$DATE[-1]
+#Creating a matrix that has has the percent change, absolute value
+#of the percent change, and the whether the foreign exchange 
+#appreciated, depreciated, or stayed the same
+values <- cbind(exrates.r, size, direction)
+#Creating the data frame with the dates, returns, size, and direction
+exrates.df = data.frame(dates = dates, returns = exrates.r,
+    size = size, direction = direction)
+#Viewing structure of the data to ensure all is looking normal
+str(exrates.df)
+#Converts the matrix into a time series object
+exrates.xts  <- na.omit(as.xts(values, dates))
+#Viewing the structure of the time series to make sure nothing is wrong
+str(exrates.xts)
+#converting from the xts object to a zooreg object
+exrates.zr <- na.omit(as.zooreg(exrates.xts))
+#Looking at the structure of the of the zooreg object
+str(exrates.zr)
+```
+
+The result of the above code converts the daily foreign exchange rates to the percent change in the foreign exchange rates, creates a matrix of the absolute value of the percent change, and creates another matrix that indicates whether the exchange rate appreciated, depreciated, or remained the same. Finally, the above block combines all the data created and converts them in to a zoo time series object using the date vector.
+
+Next, we will create a visual graphic of the percent change in the foreign exchange market from 2013 to 2018 using the ggplot2 library.
+
+```{r}
+par(mfrow=c(4,1))
+title.chg <- "Exchange Rates Percent Change"
+p1 <- autoplot.zoo(exrates.zr[,1:4]) + ggtitle(title.chg) + ylim(-5,5)
+ggplotly(p1)
+title.size <- "Absolute Value of Percent Change"
+p2 <- autoplot.zoo(exrates.zr[,5:8]) + ggtitle(title.size) + ylim(-5,5)
+p2
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
