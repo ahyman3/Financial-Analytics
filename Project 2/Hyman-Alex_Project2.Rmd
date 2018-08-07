@@ -98,17 +98,29 @@ The result of the above code converts the daily foreign exchange rates to the pe
 
 Next, we will create a visual graphic of the percent change in the foreign exchange market from 2013 to 2018 using the ggplot2 library.
 
-```{r}
-par(mfrow=c(4,1))
+```{r Ploting Returns}
+#Creates the title for the the plot
 title.chg <- "Exchange Rates Percent Change"
+#Creating the ggplot object for the percent change with a y-limit of -5% to 5%
+#for each of the four foreign exchange market
 p1 <- autoplot.zoo(exrates.zr[,1:4]) + ggtitle(title.chg) + ylim(-5,5)
+#Displays an interactive plot for the ggplot object created above
 ggplotly(p1)
+#Sets a title for the size plot
 title.size <- "Absolute Value of Percent Change"
-p2 <- autoplot.zoo(exrates.zr[,5:8]) + ggtitle(title.size) + ylim(-5,5)
-p2
+#Creates a ggplot object for the size of the the change with the y limit 
+#from 0 to 5
+p2 <- autoplot.zoo(exrates.zr[,5:8]) + ggtitle(title.size) + ylim(0,5)
 ```
 
 
+
+
+
+```{r}
+#loading the data 
+source("/Users/alexhyman/Documents/Syracuse/Current Classes/Financial Analytics/Project 1/data_moments.R")
+```
 
 
 

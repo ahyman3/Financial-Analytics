@@ -1,0 +1,213 @@
+---
+title: 'Project 2: Foreign Exchange Markets'
+author: "Alex Hyman, Matt LaFlair, Robin Kim, Sasha Singh"
+date: "8/5/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+The marketing and accounts receivable managers at our company notify us that we have significant exposure to exchange rates. Our functional currency is U.S Dollars (USD), but we operate in the United Kingdom, European Union, and Japan. The exposure to exchange rates hits the gross revenue of out financial lines.
+
+Our cash flow is also affected by the ebb and flow of accounts receivable components of working capital in producing and selling several products. When the exchange rates are volatile, so are our earnings. The goal of this project is to explore the relationships between the different markets to get a better understanding of how our earnings are affected by the exchange markets. This is especially important as we have missed our earnings forecasts for five consecutive quarters.
+
+# Part 1
+## Importing the Data
+
+First, we will load in time series data of the exchange rates for the European, United Kingdom, Chinese, and Japanese markets. We will obtain the csv file from the turing.manhattan.edu website and view the structure and a sample of the exchange rates file.
+
+```{r Loading Data, message=FALSE, warning=FALSE}
+library(zoo)      #For creating time series objects
+library(xts)      #For time series analysis
+library(ggplot2)  #For creating graphics
+library(plotly)
+
+#The URL for the exchange data data
+URL <- "https://turing.manhattan.edu/~wfoote01/finalytics/data/exrates.csv"
+
+#Reading in the exchange rates and omitting the missing data from the 
+#url provided by turing.manhattan.edu and keeping the dates as characters
+exrates <- na.omit(read.csv(url(URL), stringsAsFactors = F))
+#Converting the string dates to actual dates
+exrates$DATE <- as.Date(exrates$DATE, "%m/%d/%Y")
+
+#Five columns (date, eur2usd, gbp2usd, cny2usd, jpy2usd)
+#the data is daily exchange rates
+head(exrates)     #Looking at the data
+tail(exrates)     #Looking at the end of the data
+str(exrates)      #Viewing the structure of the data
+#1253 different instances of exchange rates
+summary(exrates)  #From 28 Jan 2013 to 26 Jan 2018
+# USD to CNY appears to be the most steady
+```
+
+## Question 1: Nature of Exchange Rates
+Becuase we are interested in how each exchange rate changes over time we will want to look at the percent change in the exchange rate on a daily basis. To calculate the percent change in the exchange rate over time, we will use the difference of logarithms for the sequential data. These calculated numbers will be in the units of percent change.
+
+```{r Percent Change}
+#Using the properties of the natural log to determine
+#the percent change in exchange rates
+exrates.r <- diff(log(as.matrix(exrates[,-1]))) * 100
+head(exrates.r)   #first 6 days of percent change
+tail(exrates.r)   #last 6 days of percent change
+str(exrates.r)    #Shows there are 4 columns with 1252 instances
+#creating a matrix for the volatility of the exchange markets
+size <- na.omit(abs(exrates.r))
+head(size)        #viewing the first 6 rows of the size matrix
+#Creating a vector of names for the matrix that has the same name as
+#the exrates matrix, but with ".size" appended at the end
+colnames(size) <- paste(colnames(size), ".size", sep = "")
+#viewing the first six rows exchange rates size matrix
+head(size)
+#Creating an empty matrix with the dimensions of exrates.r
+direction <- exrates.r
+direction[exrates.r > 0] <- 1     #setting the matrix > 0 = 1
+direction[exrates.r < 0] <- -1    #setting the matrix > 0 = -1
+direction[exrates.r == 0] <- 0    #setting the matrix == 0 = 0
+#setting the column names to the exchange market with ".dir" appended
+colnames(direction) <- paste(colnames(exrates.r), ".dir", sep = "")
+
+#Converting into a time series object
+#Vector of only dates
+#removing the first index of the dates because of the diff function
+dates <- exrates$DATE[-1]
+#Creating a matrix that has has the percent change, absolute value
+#of the percent change, and the whether the foreign exchange 
+#appreciated, depreciated, or stayed the same
+values <- cbind(exrates.r, size, direction)
+#Creating the data frame with the dates, returns, size, and direction
+exrates.df = data.frame(dates = dates, returns = exrates.r,
+    size = size, direction = direction)
+#Viewing structure of the data to ensure all is looking normal
+str(exrates.df)
+#Converts the matrix into a time series object
+exrates.xts  <- na.omit(as.xts(values, dates))
+#Viewing the structure of the time series to make sure nothing is wrong
+str(exrates.xts)
+#converting from the xts object to a zooreg object
+exrates.zr <- na.omit(as.zooreg(exrates.xts))
+#Looking at the structure of the of the zooreg object
+str(exrates.zr)
+```
+
+The result of the above code converts the daily foreign exchange rates to the percent change in the foreign exchange rates, creates a matrix of the absolute value of the percent change, and creates another matrix that indicates whether the exchange rate appreciated, depreciated, or remained the same. Finally, the above block combines all the data created and converts them in to a zoo time series object using the date vector.
+
+Next, we will create an interactive visual plot of the percent daily change for the four exchange markets ranging from 2013 to 2018 using the ggplot2 and plotly libraries.
+
+```{r Ploting Returns}
+#Creates the title for the the plot
+title.chg <- "Exchange Rates Percent Change"
+#Creating the ggplot object for the percent change with a y-limit of -5% to 5%
+#for each of the four foreign exchange market
+p1 <- autoplot.zoo(exrates.zr[,1:4]) + ggtitle(title.chg) + ylim(-5,5)
+#Displays an interactive plot for the ggplot object created above
+ggplotly(p1)
+#Sets a title for the size plot
+title.size <- "Absolute Value of Percent Change"
+#Creates a ggplot object for the size of the the change with the y limit 
+#from 0 to 5
+p2 <- autoplot.zoo(exrates.zr[,5:8]) + ggtitle(title.size) + ylim(0,5)
+```
+
+The above interactive plots show the daily percent change in the foriegn exchange markets relative to the U.S Dollar. These plots also show that the foreign exchange markets for the Japanese yen consistently displays the most volatile behavior, while the exchange market for the Chinese Yuan appears to be the most steady. The foreign exchange markets for the british pound and the euro have a fairly similar volatility, somewhere between the Yen and the Yuan. This makes intuitive sense as until recently, the UK was a part of the European Union and had their markets fairly entwined. There is some excess volatility in the GBP exchange market around June 2016 as the United Kingdom voted to leave the European Union, allowing for political speculation of the future of the UK. 
+
+The relatively flat line for the percent change in the exchange rate from USD to CNY shows that the value of the yuan is generally fixed against the price of the dollar, meaning it you could buy approximately the same amount of yuan with the U.S Dollar during any time in that timespan. This fixed price against the dollar is significant, because it keeps the Yuan cheap, even as the Chinese economy continues to grow. 
+
+Using this plot, we can see that the volatility in our earnings due to the foreign exchange market is primarily caused by our business in Japan. The volatility in GBP and Euro markets is not as significant as the Yen, but could cause significant issues to our cash flow, especially depending on the volume of revenue. If we were looking at potentially accessing the Chinese market to stabilize some of the volatility in our cash flow, we would want to do more research on the barrier of entry to the Chinese market as the economy of China is dominated by State owned enterprises, and thus the political risk may outweigh the financial gains. It would also be beneficial to see if our prices would be competitive in the Chinese market as the Chinese economy has been growing at a higher rate than the United States, while valuing the currency at approximately the same price, seemingly devaluing the Yuan.
+
+## Question 2: Foreign Exchange Market Relationships and Descriptive Statistics
+Next, we will be interested in seeing how the foreign exchange markets interact, and whether events in the past have an effect on the current market. This will be viewed in terms of the autocorrelations in percent change and autocorrelations in the size of the change. Using the partial autocorrelation, we will be able to see how long of a memory the markets have and which days are significant in determining today's market. First we will create an autocorrelation matrix for the percent change in the markets.
+
+```{r ACF on Returns}
+#Creating an autocorrelation matrix for each market
+#The diagonal is shows the memory in the past for the same market
+#The x-axis is the amount of lag 
+#If x-axis is negative, the exchange market that is listed first
+#in the title is the exchange market that is being lagged
+acf(coredata(exrates.xts[,1:4]))
+```
+The vertical lines that appear along the x-axis show the autocorrelation coefficient, and vertical lines that appear above the dashed line have a significant autocorrelation coefficient. The autocorrelation matrix shows that there is some correlation in the percent change between the markets on the same day (zero lag), but not really any memory in the markets to create accurate forecasts with this data alone. 
+
+The most significant same day correlations are between the Euro/GBP interaction and between the Euro/JPY interaction. The interactions of the Chinese Yuan and every other market appears to be less significant than the all other interactions. There also appears to be little interaction between the change in the GBP exchange rate and the change in the JPY exchange rate.
+
+Next, we will create an autocorrelation matrix for the sizes in the percent changes. Interactions that are significant will mean that a large magnitude of returns breeds more large magnitude of returns (independent of direction), and that a small magnitude of returns brees more smaller magnitude of returns.
+
+```{r ACF on Size}
+#Creating an autocorrelation matrix for the foreign
+#exchange markets for columns 5-7 (Size of the 
+#percent change). Not including the japanese market
+#to have larger plots
+acf(coredata(exrates.xts[,5:7]))
+```
+Using the autocorrelation matrix for the magnitude of percent change in the foreign exchange markets, we can see that there is some memory within the same market. This can be determined by looking along the diagonal of the matrix and seeing a number of vertical lines outside the range of the confidence interval. The memory within the same market is also more relevant in the short-term (lags 1-5) as the frequency of autocorrelation intervals above the confidence interval is greater than the frequenct of significant autocorrelation terms with a greater lag; but, there seems to be some persistence in the market as there are some coefficients outside the confidence interval around a lag of 20. This graphic shows that it is likely that a certain magnitude of returns today will bring a like magnitude of returns in the future. Whether the exchange rate will appreciate or depreciate is not within the scope of this graphic as we are only looking at the size of the percent change.
+
+Next we will use the partial autocorrelation between the foreign exchange markets to see if there is any correlation in the interactions between markets in the past, independent of what has happened between the lag date and the present. 
+
+```{r Partial ACF of Returns}
+#Creating a partial 
+pacf(coredata(exrates.xts[,1:4]))
+```
+
+The partial autocorrelation matrix for the foreign exchange markets shows that there is a significant amount of memory in the GBP and EUR exchange markets in terms of the CNY exchange rate. This is particularly apparent around the 10 lag mark. The partial autocorrelation matrix also shows that there is a significant amount of memory in the JPY exhange in terms of past events in the CNY exchange. While it is interesting to note that the partial autocorrelation of the CNY exchange is significant with all the other exchanges, it could also be worth noticing that there is not a lot of memory in the CNY exchange when when looking at last event in its own exchange, which is typical for the other exchanges, but the CNY exchange does not appear to behave in the same manner as the other exchanges. This could be the result of the CNY exchange essentially mimicing the daily percent changes of the USD.
+
+Next we will create a partial autocorrelation plot that will show whether the size of the percent change in the exchange rate in the past has an effect on the percent change of today's rate, independent of what has happened between the lag and the present. 
+
+```{r Partial ACF on Size}
+pacf(coredata(exrates.xts[,5:7]))
+```
+Comment on the pacf
+
+Verbiage on the statistics on size of returns
+
+```{r}
+data_moments <- function(data) {
+    library(moments)                            #Package for skewness and kurtosis
+    library(matrixStats)                        #Package for statistics on matrix columns
+    mean.r <- colMeans(data)                    #Calculates the mean for each column
+    median.r <- colMedians(data)                #Calculates the median for each column
+    sd.r <- colSds(data)                        #Standard deviation for each column
+    IQR.r <- colIQRs(data)                      #Difference between Q1 and Q3
+    skewness.r <- skewness(data)                #Skewness for each column
+    kurtosis.r <- kurtosis(data)                #kurtosis for each column
+    #Creates a data frame with the statistics for each column
+    result <- data.frame(mean = mean.r,
+        median = median.r, std_dev = sd.r, 
+        IQR = IQR.r, skewness = skewness.r, 
+        kurtosis = kurtosis.r)
+    return(result)
+}
+answer <- data_moments(exrates.xts[,5:8])
+knitr::kable(answer, digits = 4)
+```
+
+Comment on what the above statistics mean in terms of size of returns
+
+Calculate the mean for returns; comment on japanese yen being greater than the other returns
+
+```{r}
+colMeans(exrates.xts[, 1:4])
+```
+
+# Part 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
