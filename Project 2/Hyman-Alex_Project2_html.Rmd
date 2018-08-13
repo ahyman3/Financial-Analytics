@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Introduction
 
-The marketing and accounts receivable managers at our company notify us that we have significant exposure to exchange rates. Our functional currency is U.S Dollars (USD), but we operate in the United Kingdom, European Union, and Japan. The exposure to exchange rates hits the gross revenue of out financial lines.
+The marketing and accounts receivable managers at our company have notified us that we have significant exposure to exchange rates. Our functional currency is U.S Dollars (USD), but we operate in the United Kingdom, European Union, and Japan. The exposure to exchange rates hits the gross revenue of out financial lines.
 
 Our cash flow is also affected by the ebb and flow of accounts receivable components of working capital in producing and selling several products. When the exchange rates are volatile, so are our earnings. The goal of this project is to explore the relationships between the different markets to get a better understanding of how our earnings are affected by the exchange markets. This is especially important as we have missed our earnings forecasts for five consecutive quarters.
 
@@ -31,7 +31,7 @@ URL <- "https://turing.manhattan.edu/~wfoote01/finalytics/data/exrates.csv"
 
 #Reading in the exchange rates and omitting the missing data from the 
 #url provided by turing.manhattan.edu and keeping the dates as characters
-exrates <- na.omit(read.csv(url(URL), stringsAsFactors = F))
+exrates <- na.omit(read.csv("exrates.csv", stringsAsFactors = F))
 #Converting the string dates to actual dates
 exrates$DATE <- as.Date(exrates$DATE, "%m/%d/%Y")
 
@@ -46,7 +46,7 @@ summary(exrates)  #From 28 Jan 2013 to 26 Jan 2018
 ```
 
 ## Question 1: Nature of Exchange Rates
-Becuase we are interested in how each exchange rate changes over time we will want to look at the percent change in the exchange rate on a daily basis. To calculate the percent change in the exchange rate over time, we will use the difference of logarithms for the sequential data. These calculated numbers will be in the units of percent change.
+Exchange rates are simply the value, or ratio of one nation's currency purchasing power in others. Because we are interested in how each exchange rate changes over time we will want to look at the percent change in the exchange rate on a daily basis. To calculate the percent change in the exchange rate over time, we will use the difference of logarithms for the sequential data. These calculated numbers will be in the units of percent change. For the purposes of business analysis and as it relates to the financial analytics course, the small changes in the log of a variable will be directly interpretable as percent changes, to a very close approximation.
 
 ```{r Percent Change}
 #Using the properties of the natural log to determine
@@ -98,6 +98,7 @@ The result of the above code converts the daily foreign exchange rates to the pe
 
 Next, we will create an interactive visual plot of the percent daily change for the four exchange markets ranging from 2013 to 2018 using the ggplot2 and plotly libraries.
 
+
 ```{r Ploting Returns}
 #Creates the title for the the plot
 title.chg <- "Exchange Rates Percent Change"
@@ -113,14 +114,14 @@ title.size <- "Absolute Value of Percent Change"
 p2 <- autoplot.zoo(exrates.zr[,5:8]) + ggtitle(title.size) + ylim(0,5)
 ```
 
-The above interactive plots show the daily percent change in the foriegn exchange markets relative to the U.S Dollar. These plots also show that the foreign exchange markets for the Japanese yen consistently displays the most volatile behavior, while the exchange market for the Chinese Yuan appears to be the most steady. The foreign exchange markets for the british pound and the euro have a fairly similar volatility, somewhere between the Yen and the Yuan. This makes intuitive sense as until recently, the UK was a part of the European Union and had their markets fairly entwined. There is some excess volatility in the GBP exchange market around June 2016 as the United Kingdom voted to leave the European Union, allowing for political speculation of the future of the UK. 
+The above interactive plots show the daily percent change in the foreign exchange markets relative to the U.S Dollar. These plots also show that the foreign exchange markets for the Japanese yen consistently displays the most volatile behavior, while the exchange market for the Chinese yuan appears to be the most steady. The foreign exchange markets for the British pound and the euro have a fairly similar volatility, a magnitude somewhere between the yuan and yen. This makes intuitive sense as until recently, the UK was a part of the European Union and had their markets fairly entwined. There is some excess volatility in the GBP exchange market around June 2016 as the United Kingdom voted to leave the European Union, allowing for political speculation of the future of the UK.
 
-The relatively flat line for the percent change in the exchange rate from USD to CNY shows that the value of the yuan is generally fixed against the price of the dollar, meaning it you could buy approximately the same amount of yuan with the U.S Dollar during any time in that timespan. This fixed price against the dollar is significant, because it keeps the Yuan cheap, even as the Chinese economy continues to grow. 
+The relatively flat line for the percent change in the exchange rate from USD to CNY shows that the value of the yuan is generally fixed against the price of the dollar, meaning it you could buy approximately the same amount of yuan with the U.S Dollar during any time in that timespan. This fixed price against the dollar is significant, because it keeps the yuan cheap, even as the Chinese economy continues to grow. Although, it is worth noting that the yuan exchange rate has shown some an increase in volatility, in particular its magnitudes since late 2015, and more recently in 2017. This may be a result of a key yuan index changing its calculation method.
 
-Using this plot, we can see that the volatility in our earnings due to the foreign exchange market is primarily caused by our business in Japan. The volatility in GBP and Euro markets is not as significant as the Yen, but could cause significant issues to our cash flow, especially depending on the volume of revenue. If we were looking at potentially accessing the Chinese market to stabilize some of the volatility in our cash flow, we would want to do more research on the barrier of entry to the Chinese market as the economy of China is dominated by State owned enterprises, and thus the political risk may outweigh the financial gains. It would also be beneficial to see if our prices would be competitive in the Chinese market as the Chinese economy has been growing at a higher rate than the United States, while valuing the currency at approximately the same price, seemingly devaluing the Yuan.
+Using this plot, we can see that the volatility in our earnings due to the foreign exchange market is primarily caused by our business in Japan. The volatility in GBP and euro markets is not as significant as the yen, but could cause significant issues to our cash flow, especially depending on the volume of revenue. If we were looking at potentially accessing the Chinese market to stabilize some of the volatility in our cash flow, we would want to do more research on the barrier of entry to the Chinese market as the economy of China is dominated by State owned enterprises, and thus the political risk may outweigh the financial gains. It would also be beneficial to see if our prices would be competitive in the Chinese market as the Chinese economy has been growing at a higher rate than the United States, while valuing the currency at approximately the same price, seemingly devaluing the yuan. 
 
 ## Question 2: Foreign Exchange Market Relationships and Descriptive Statistics
-Next, we will be interested in seeing how the foreign exchange markets interact, and whether events in the past have an effect on the current market. This will be viewed in terms of the autocorrelations in percent change and autocorrelations in the size of the change. Using the partial autocorrelation, we will be able to see how long of a memory the markets have and which days are significant in determining today's market. First we will create an autocorrelation matrix for the percent change in the markets.
+Next, we will be interested in seeing how the foreign exchange markets interact, and whether events in the past have an effect on the current market. This will be viewed in terms of the autocorrelations in percent change and autocorrelations in the size of the change. Using the partial autocorrelation, we will be able to see how long of a memory the markets have and which days are significant in determining today’s market. First we will create an autocorrelation matrix for the percent change in the markets.
 
 ```{r ACF on Returns}
 #Creating an autocorrelation matrix for each market
@@ -130,38 +131,44 @@ Next, we will be interested in seeing how the foreign exchange markets interact,
 #in the title is the exchange market that is being lagged
 acf(coredata(exrates.xts[,1:4]))
 ```
-The vertical lines that appear along the x-axis show the autocorrelation coefficient, and vertical lines that appear above the dashed line have a significant autocorrelation coefficient. The autocorrelation matrix shows that there is some correlation in the percent change between the markets on the same day (zero lag), but not really any memory in the markets to create accurate forecasts with this data alone. 
 
-The most significant same day correlations are between the Euro/GBP interaction and between the Euro/JPY interaction. The interactions of the Chinese Yuan and every other market appears to be less significant than the all other interactions. There also appears to be little interaction between the change in the GBP exchange rate and the change in the JPY exchange rate.
+The vertical lines that appear along the x-axis show the autocorrelation coefficient, and vertical lines that appear above the dashed line have a significant autocorrelation coefficient. The autocorrelation matrix shows that there is some correlation in the percent change between the markets on the same day (zero lag), but not really any memory in the markets to create accurate forecasts with this data alone.
 
-Next, we will create an autocorrelation matrix for the sizes in the percent changes. Interactions that are significant will mean that a large magnitude of returns breeds more large magnitude of returns (independent of direction), and that a small magnitude of returns brees more smaller magnitude of returns.
+The most significant same day correlations are between the euro/GBP interaction and between the Euro/JPY interaction. Same day positive movement, either by the GBP or EUR yields positive movement in the other. WIth the correlation coefficient of ~0.5,  25% of the moment in either the EUR or GBP can be explained by the other . The interactions of the Chinese yuan and every other market appears to be less significant than the all other interactions. There also appears to be little interaction between the change in the GBP exchange rate and the change in the JPY exchange rate.
+
+Next, we will create an autocorrelation matrix for the sizes in the percent changes. Interactions that are significant will mean that a large magnitude of returns breeds more large magnitude of returns (independent of direction), and that a small magnitude of returns breeds more smaller magnitude of returns.
+
 
 ```{r ACF on Size}
 #Creating an autocorrelation matrix for the foreign
 #exchange markets for columns 5-7 (Size of the 
 #percent change). Not including the japanese market
 #to have larger plots
-acf(coredata(exrates.xts[,5:7]))
+acf(coredata(exrates.xts[,5:8]))
 ```
-Using the autocorrelation matrix for the magnitude of percent change in the foreign exchange markets, we can see that there is some memory within the same market. This can be determined by looking along the diagonal of the matrix and seeing a number of vertical lines outside the range of the confidence interval. The memory within the same market is also more relevant in the short-term (lags 1-5) as the frequency of autocorrelation intervals above the confidence interval is greater than the frequenct of significant autocorrelation terms with a greater lag; but, there seems to be some persistence in the market as there are some coefficients outside the confidence interval around a lag of 20. This graphic shows that it is likely that a certain magnitude of returns today will bring a like magnitude of returns in the future. Whether the exchange rate will appreciate or depreciate is not within the scope of this graphic as we are only looking at the size of the percent change.
 
-Next we will use the partial autocorrelation between the foreign exchange markets to see if there is any correlation in the interactions between markets in the past, independent of what has happened between the lag date and the present. 
+Using the autocorrelation matrix for the magnitude of percent change in the foreign exchange markets, we can see that there is some memory within the same market. This can be shown by looking along the diagonal of the matrix and seeing a multiple vertical lines outside the range of the confidence interval. The memory within the same market is also more relevant in the short-term (lags 1-5) as the frequency of autocorrelation intervals above the confidence interval is greater than the frequency of significant autocorrelation terms with a greater lag; but, there seems to be some persistence in the market as there are some coefficients outside the confidence interval around a lag of 20. This graphic shows that it is likely that a certain magnitude of returns today will bring a like magnitude of returns in the future. Whether the exchange rate will appreciate or depreciate is not within the scope of this graphic as we are only looking at the size of the percent change. The magnitude of returns measured by the autocorrelation matrix is independent of the projected appreciation and depreciation of the currencies.
+
+Next we will use the partial autocorrelation between the foreign exchange markets to see if there is any correlation in the interactions between markets in the past, independent of what has happened between the lag date and the present.
 
 ```{r Partial ACF of Returns}
 #Creating a partial 
 pacf(coredata(exrates.xts[,1:4]))
 ```
 
-The partial autocorrelation matrix for the foreign exchange markets shows that there is a significant amount of memory in the GBP and EUR exchange markets in terms of the CNY exchange rate. This is particularly apparent around the 10 lag mark. The partial autocorrelation matrix also shows that there is a significant amount of memory in the JPY exhange in terms of past events in the CNY exchange. While it is interesting to note that the partial autocorrelation of the CNY exchange is significant with all the other exchanges, it could also be worth noticing that there is not a lot of memory in the CNY exchange when when looking at last event in its own exchange, which is typical for the other exchanges, but the CNY exchange does not appear to behave in the same manner as the other exchanges. This could be the result of the CNY exchange essentially mimicing the daily percent changes of the USD.
+The partial autocorrelation matrix for the foreign exchange markets shows that there is a significant amount of memory in the GBP and EUR exchange markets in terms of the CNY exchange rate. This is particularly apparent around the 10 lag mark. The partial autocorrelation matrix also shows that there is a significant amount of memory in the JPY exchange in terms of past events in the CNY exchange. While it is interesting to note that the partial autocorrelation of the CNY exchange is significant with all the other exchanges, it could also be worth noting that there is not a lot of memory in the CNY exchange when when looking at last event in its own exchange. This could be typical for the other exchanges, but the CNY exchange does not appear to behave in the same manner as the other exchanges. This could be the result of the CNY exchange essentially mimicking the daily percent changes of the USD.
 
-Next we will create a partial autocorrelation plot that will show whether the size of the percent change in the exchange rate in the past has an effect on the percent change of today's rate, independent of what has happened between the lag and the present. 
+Next we will create a partial autocorrelation plot that will show whether the size of the percent change in the exchange rate in the past has an effect on the percent change of today’s rate, independent of what has happened between the lag and the present.
 
 ```{r Partial ACF on Size}
-pacf(coredata(exrates.xts[,5:7]))
+#Partial autocorrelation on the magnitude of percent change
+pacf(coredata(exrates.xts[,5:8]))
 ```
-Comment on the pacf
 
-Verbiage on the statistics on size of returns
+The partial autocorrelation for value of the percent change in the market indicate that the EUR exchange rate maintains significant memory up to 15 days prior, and even some correlation to around 25 days ago. The GBP shows similar artifacts up to 14 days prior, surprisingly there is little relationship between the EUR and GBP in terms of volatility. Although the currencies are within the same continents, and therefore a stronger relationship can be assumed- the assessment of the partial autocorrelation indicates that they are not strongly correlated. The most important information of these plots however is how the Chinese yuan effects significantly affects the volatility in all other markets, while it is shown no volatility relationship of others on its own. The yuan market maintains a memory of day lags of 1, 2, 3, 7. 
+
+Next we will create a function to view some descriptive statistics based on magnitude of percent change in the various exchange markets.
+
 
 ```{r Data Moments}
 data_moments <- function(data) {
@@ -180,17 +187,24 @@ data_moments <- function(data) {
         kurtosis = kurtosis.r)
     return(result)
 }
+#Using the data moments function on the size of the percent change
 answer <- data_moments(exrates.xts[,5:8])
+#knitting the table to display in a nice formatted table, rounded to 4 decimals
 knitr::kable(answer, digits = 4)
 ```
 
-Comment on what the above statistics mean in terms of size of returns
+The data moments table above shows the calculated statistics for each of the four foreign exchange markets. In support of our initial analysis, the Japanese yen exchange is the most volatile, the mean and median volatility for the euro and the Pound are relatively similar, and the Chinese yuan exchange is the least volatile. The standard deviation for the pound is slightly greater than the standard deviation of the euro, most likely from the increased volatility due to Brexit in 2016. This increased volatility in the GBP is also an explanation for the huge kurtosis number found in the GBP exchange. 
 
-Calculate the mean for returns; comment on japanese yen being greater than the other returns
+All of the markets have a high kurtosis coefficient relative to the normal distribution, which means that there are more extreme events in the tails of the distribution than a normal distribution. The skewness of the USD to GBP exchange is positive, but this does not necessarily mean the dollar is appreciating in these extreme situation, as we are analyzing the absolute value of change, without any indication of what direction. Further analysis of the distribution of the actual percent changes of the various exchange rates would give us a better idea of which markets would provide a better exchange rate. Furthermore, the skewness of each of the markets are all heavily right skewed, with the GBP and Chinese markets producing the most right-sided distributions, but this is to be expected because the markets are limited to 0 on the left-tailed side. 
+
+Next we will calculate the average of the actual returns for each of the foreign exchange markets. We will expect the markets to be centered around zero. We would prefer the Chinese and Japanese exchange rates to be slightly positive and the GBP and euro exchange rates to be negative. This is so because the Chinese and Japanese exchange rates are valued as how many yuan or yen you can purchase with a dollar; a positive number would indicate that we can buy more of the currency with a dollar, and a negative number would indicate that we would buy less of the currency with a dollar. Additionally, we would prefer the euro and the GBP to have a negative mean percent change because the exchange rate is provided in terms of how much USD is needed to purchase one euro or GBP. A negative rate means that it takes fewer USD to buy one GBP or euro, increasing our purchase power.
+
 
 ```{r Means of Returns}
+#Looking at the mean percent change all the exhange rates
 colMeans(exrates.xts[, 1:4])
 ```
+The Japanese market displays the highest mean for return of all four of the markets. The Japanese foreign exchange market also had the mean exchange rate that was the furthest from zero. Additionally all of the markets were on our preferred side of zero, indicating that the USD has done well compared to each of the other currencies over the same period of time.
 
 # Part 2
 
@@ -198,15 +212,23 @@ colMeans(exrates.xts[, 1:4])
 We want to characterize the distribution of up and down movements visually. Also we would like to repeat the analysis periodically for inclusion in management reports.
 
 ## Question 1: Distribution of returns
-How can we show the shape of our exposure to euros, especially given our tolerance for risk? Suppose corporate policy set tolerance at 95%. Let’s use the exrates.df data frame with ggplot2 and the cumulative relative frequency function  stat_ecdf.
+To better understand the daily behavior of exchange rates and what our exposure to the euro looks like, we would want to create an estimated cumulative density function to model the distribution of returns will allow us to see how likely it is for the daily change in the euro exchange to be below a specified quantile. In creating a investing plan that has a 5% risk allowance, we can use this estimated cumulative density function to see at what percentage U.S Dollar depreciation against the euro is past our tolerance for risk. The following Block of R code will set a tolerable risk percentage to 0.95 and find out at what rate has the dollar depreciated outside of our risk tolerance.
 
 ```{r Tolerable Rate}
+#Setting a tolerable rate of 95%
 exrates.tol.pct <- 0.95
+#setting exrates.tol to be the value that has 95% of returns below that value
 exrates.tol <- quantile(exrates.df$returns.USD.EUR, 
     exrates.tol.pct)
+#combining variables to create a label that states
+#what returns are at the 95%
 exrates.tol.label <- paste("Tolerable Rate = ", 
     round(exrates.tol, 2), "%", sep = "")
-p <- ggplot(exrates.df, aes(returns.USD.EUR, 
+#creating a ggplot object with the exrates data frame using the usd to euro exchange rate
+#using the cumulative density function to create the plot in a blue color and drawing a 
+#red vertical line at the 95% and adding text to the plot that the tolerable rate is 
+#at 95%
+p <- ggplot(exrates.df, aes(returns.USD.EUR,
     fill = direction.USD.EUR.dir)) + 
     stat_ecdf(colour = "blue", size = 0.75) + 
     geom_vline(xintercept = exrates.tol, 
@@ -214,68 +236,80 @@ p <- ggplot(exrates.df, aes(returns.USD.EUR,
     annotate("text", x = exrates.tol + 
         1, y = 0.75, label = exrates.tol.label, 
         colour = "darkred")
+#showing the plot
 p
 ```
 
-Comment on the distribution for Euro exchange, what it means
+The estimated cumulative density function shows that on a given day there is a 95% percent chance that the percent change in the foreign exchange between the dollar and the euro will be below 0.88%. This also means that there is only a 5% chance that the dollar will depreciate against the pound by more than 0.88%. If the dollar has depreciated by more than 0.88% in a recent date, we should look to conduct further analysis of the exchange rate before buying the euro.
+
+The distribution of percent changes in the exchange between the dollar and the euro also appears fairly symmetrical around the y-intercept, with approximately 50% of the time the dollar will appreciate and 50% of the time the dollar will appreciate. A further analysis to better understand our exposure to the euro would involve us looking at the shape of the positive percent changes in exchange rate versus the negative percent changes in the exchange rate.
 
 ## Question 2: 
 
-What is the history of correlations in the exchange rate markets? If this is a “history,” then we have to manage the risk that conducting business in one country will definitely affect business in another. Further that bad things will be followed by more bad things more often than good things. We will create a rolling correlation function, corr_rolling, and embed this function into the rollapply() function (look this one up!).
+While looking at the statistics and correlations between the market over a long period of time can be helpful, it is important to see how theses relations and statistics have changed over time. It is also important to have this analysis be repeatable, saving time and effort creating the code. First we will look at the cross correlations function in the percent change between the euro and the GBP.
 
 ```{r}
+#creating a timeseries for the euro exchange rate
 one <- ts(exrates.df$returns.USD.EUR)
+#creating a timeseries for the british pound exchange rate
 two <- ts(exrates.df$returns.USD.GBP)
-# or
-one <- ts(exrates.zr[, 1])
-two <- ts(exrates.zr[, 2])
+#Creating a cross-correlation function to estimate the 
+#the cross correlation with both positive and negative lag
+#with a maximum lag of 20 and having a red confidence interval
 ccf(one, two, main = "GBP vs. EUR", lag.max = 20, 
     xlab = "", ylab = "", ci.col = "red")
 ```
 
-Comment on the meaning
+The cross-correlation plot for the GBP and the euro shows that there seems to be some small raw correlations across time with raw returns. Moreover, we see volatility of correlation clustering in using return sizes. This means that the same risk will occur in both countries.
 
-Idea behind bootstrapping
+Next we will create a function that will create a cross-correlation plot for any two vectors that are equal length. This will save time when evaluating the cross correlations between the euro and the GBP with future data, and save time when comparing correlations with new currencies.
+
 
 ```{r Building Function for Replication}
-# build function to repeat these
-# routines
+#creating a functtion that has inputs of two columns of a 
+#data frame, a title, the lag, abd the color of the confidence interval on the plot
 run_ccf <- function(one, two, main = "one vs. two", 
     lag = 20, color = "red") {
-    # one and two are equal length series
-    # main is title lag is number of lags
-    # in cross-correlation color is color
-    # of dashed confidence interval
-    # bounds
+    #If the lengths of the two vectors are not the same length, stop
     stopifnot(length(one) == length(two))
+    #convert the vectors into timeseries
     one <- ts(one)
     two <- ts(two)
+    #setting the title to main
     main <- main
+    #Setting the lag to the lag
     lag <- lag
+    #setting the color to the color
     color <- color
+    #creating the cross correlation function 
     ccf(one, two, main = main, lag.max = lag, 
         xlab = "", ylab = "", ci.col = color)
     # end run_ccf
 }
-one <- ts(exrates.df$returns.USD.EUR)
-two <- ts(exrates.df$returns.USD.GBP)
-# or
-one <- exrates.zr[, 1]
-two <- exrates.zr[, 2]
+#setting the first vector to the the euro exchange
+one <- exrates.df$returns.USD.EUR
+#setting the second vector to the GBP exchange
+two <- exrates.df$returns.USD.GBP
+#creating the title for the figure
 title <- "EUR vs. GBP"
+#Running the function with the arguments created
 run_ccf(one, two, main = title, lag = 20, 
     color = "red")
 ```
 
-What does the figure mean
+As the previous graphic had shown, there seems to be some small raw correlations across time with raw returns. Moreover, we see volatility of correlation clustering in using return sizes. This also shows that the exact same plots can be created with simply using a function, making it repeatable code, instead of by writing a single script.
 
-CCF for volatility
+Next, we will use the run_ccf function we had created in the previous block of code to create the ccf plot for the volatility of returns in the GBP and euro exchanges. 
+
 
 ```{r}
-# now for volatility (sizes)
-one <- ts(abs(exrates.zr[, 1]))
-two <- ts(abs(exrates.zr[, 2]))
+#Creating a vector from the euro zoo object
+one <- exrates.zr[, 5]
+#Creating a vector from the GBP zoo object
+two <- exrates.zr[, 6]
+#Creating a title for our plot
 title <- "EUR vs. GBP: volatility"
+#Running the cross correlation function we created
 run_ccf(one, two, main = title, lag = 20, 
     color = "red")
 # We see some small raw correlations
@@ -285,96 +319,140 @@ run_ccf(one, two, main = title, lag = 20,
 # sizes.
 ```
 
-Meaning behind the ccf
+The cross-correlation function between the GBP and the euro, in terms of the magnitude of percent change, shows that there is even more volatility clustering in terms of the size of the change over time, and with even more significance. This would signify that there is persistence, and even some spillover from the two markets. 
 
-Rolling autocorrelation
+Next, we will look at how the correlations between the two markets have changed over time by creating a function that will calculate the correlations in raw returns and the correlations in the size of the returns. These functions will be paired with the roll_apply function, which allows us to look at these statistics in a rolling window we will specify as 90 days.
+
 
 ```{r}
+#Starting a function that takes in a data frame 
 corr_rolling <- function(x) {
+    #getting the number of columns in the data frame
     dim <- ncol(x)
+    #taking the correlation of the data frame and index the lower triangle
+    #of the square matrix, excluding the diagonal
     corr_r <- cor(x)[lower.tri(diag(dim), 
         diag = FALSE)]
+    #returning the lower triangle of the correlation matrix
     return(corr_r)
 }
+#Create a function for calculating the rolling volatility
 vol_rolling <- function(x) {
+    #loading the matrix statistics library
     library(matrixStats)
+    #calculating the volatility if the columns of the data frame
     vol_r <- colSds(x)
+    #returning the standard deviations of the columns
     return(vol_r)
 }
+#Creating a matrix of the returns
 ALL.r <- exrates.xts[, 1:4]
+#Creating a window of 90 days
 window <- 90  #reactive({input$window})
+#rollapply is applying the corr_rolling function to the All.r data frame
+#on a rolling window of 90 days on each column individually
 corr_r <- rollapply(ALL.r, width = window, 
     corr_rolling, align = "right", by.column = FALSE)
+#Assigning the column names to the correlations between the columns
 colnames(corr_r) <- c("EUR.GBP", "EUR.CNY", 
     "EUR.JPY", "GBP.CNY", "GBP.JPY", 
     "CNY.JPY")
+#rollapply is applying the vol_rolling function to the All.r data frame
+#on a rolling window of 90 days on each column individually
 vol_r <- rollapply(ALL.r, width = window, 
     vol_rolling, align = "right", by.column = FALSE)
+#assigning the column names to the vol_r data frame
 colnames(vol_r) <- c("EUR.vol", "GBP.vol", 
     "CNY.vol", "JPY.vol")
+#creating a vector that takes the year from the index and just extracts the year
 year <- format(index(corr_r), "%Y")
+#combining the data frames for the returns, rolling returns correlation, rolling
+#volatility correlation, and the year for the date
 r_corr_vol <- merge(ALL.r, corr_r, vol_r, 
     year)
 ```
 
-What did we just do
+The rolling correlations in in volatility and raw returns give us more context of how recent and historical events have affected the correlations between two markets. This can be helpful when planning operations or other business venture for the quarter in the various markets we are operating. 
 
-## Question 4: 
+## Question 3: Correlations and Volatilities 
 
-How related are correlations and volatilities? Put another way, do we have to be concerned that inter-market transactions (e.g., customers and vendors transacting in more than one currency) can affect transactions in a single market? Let’s model the the exrate data to understand how correlations and volatilities depend upon one another.
+One final question we will want to answer is: are the correlations and volatilities related? This is important because we would want to know if there was an increased volatility in one market, would we want to pull our projects out of another market. An increase in correlation could also mean we would want to increase operations, it just depends on whether they are positively or negatively correlated. We will explore this with a quantile regression and a linear regression of the log correlation in the chinese and japanese exchanges, dependent on the volatility in the Japanese Market. On exploration of the correlations between these two exchanges makes sense with the volatility of the Japanese yen as the input, because we found some memory in the yuan based on past event in the yen exchange.
 
 ```{r}
+#importing the quantile regression library
 library(quantreg)
+#Creating a vector from 0.05 to 0.95 in which the regression will attempt
+#to reduce error from that given quantile at a given x
 taus <- seq(0.05, 0.95, 0.05)  # Roger Koenker UIC Bob Hogg and Allen Craig
+#running a quantile regression to see how the the rolling volatility 
+# of the japanese yen effects the correlation in exchange rates between the
+#yuan and the yen at the quantiles specified in taus and the data provided 
+#in the r_corr_vol data frame using the log of the correlation and the log
+#of the volatility to transform into linear data
 fit.rq.CNY.JPY <- rq(log(CNY.JPY) ~ log(JPY.vol), 
     tau = taus, data = r_corr_vol)
+#Creating a least ordinary squares regression on the yuan and the yen
 fit.lm.CNY.JPY <- lm(log(CNY.JPY) ~ log(JPY.vol), 
     data = r_corr_vol)
-# Some test statements
+#assigning the summary of the quantile regression to a variable
 CNY.JPY.summary <- summary(fit.rq.CNY.JPY, 
     se = "boot")
+#printing the summary
 CNY.JPY.summary
 ```
 
-What did we just do
-
-Explain next section
 
 ```{r}
+#Plotting the intercept and the slope determined by the quantile
+# regression for each quantile specified in taus
 plot(CNY.JPY.summary)
 ```
 
-Here is the quantile regression part of the package.
+Performing a quantile regression will allow us to infer a relationship between the correlation of CNY/JPY and the volatility of the returns for JPY. In the above chunk we perform the quantile regression with the ‘rq’ command, while ‘lm’ creates a simple regression model for the CNY/JPY and JPY.vol, shown in red. ‘taus’ is saved to specify the quantiles in which we will run the regressions. The quantile regression is run with  log(CNY.JPY) defining y axis and ~ log(JPY.vol) defined as the independent variable. We will run a regression for every quantile from .05 to .95, in .05 increments. The first plot displays the  intercept (y axis) of the accompanying quartile, presented on the x axis. The bottom plot details the similar quantile on the x axis, but the y displays the associated slope, shown in the summary tables. The quantile coefficients tell us that for every quantile increase, .05 to 0.1 and so on, what the change in CNY/JPY correlation means due to JPY volatility . The .1, .4, .5,.6 quantile coefficients all fall within the confidence intervals but all other fall well outside of the confidence intervals. This gives little confidence that a simple linear regression model could predict and support inter-market effects, especially when the correlations are not behaving near the mean value. The data also shows a steady increase in the slope and intercept as our quantiles increase meaning the correlation of CNY and JPY is highly related to the volatility in JPY. 
 
-1.  We set taus as the quantiles of interest.
-2.  We run the quantile regression using the quantreg package and a call to the rq function.
-3.  We can overlay the quantile regression results onto the standard linear model regression.
-4.  We can sensitize our analysis with the range of upper and lower bounds on the parameter estimates of the relationship between correlation and volatility.
-5.  The log()-log() transformation allows us to interpret the regression coefficients as elasticities, which vary with the quantile. The larger the elasticity, especially if the absolute value is greater than one, the more risk dependence one market has on the other.
-6.  The risk relationships can also be viewed year by year. Here we see very different patterns and scenarios.
+Next we will use the magick package to create an animation that shows the risk relationships year by year. This is done by creating a list of data frames that contain the volatility in the japanese market and the correlation between the yen and the yuan, separated by year.
 
-Expand
-
-Comment what we are doing below:
 
 ```{r}
+#library for quantile regression
 library(quantreg)
+#library for animations
 library(magick)
+#Setting the resolution of the image to 96 pixels
 img <- image_graph(res = 96)
+#Creating a list that has the r_corr_vol data frame
+#split up by each yeat
 datalist <- split(r_corr_vol, r_corr_vol$year)
+#using list apply to apply a custom function for each year
 out <- lapply(datalist, function(data) {
-    p <- ggplot(data, aes(JPY.vol, CNY.JPY)) + 
+  #creating a plot assigned to the p variable with the yen volatility as
+  #the x-axis and the yuan and yen correlation y-axis
+    p <- ggplot(data, aes(JPY.vol, CNY.JPY)) +
+        #making it a scatterplot and titling it the year
         geom_point() + ggtitle(data$year) + 
+        #creating a confidence interval with a solid blue line
+        #that shows how the 0.05 quantile and 0.95 quantile line
+        #looks like
         geom_quantile(quantiles = c(0.05, 
+        #Plotting the quantile regression at the median with a 
+        #blue londashed line
             0.95)) + geom_quantile(quantiles = 0.5, 
+        #Uses contours to show densities from the scatter plot
         linetype = "longdash") + geom_density_2d(colour = "red")
+    #print the plot
     print(p)
 })
+#While there are not an active device where the graphics are occurring
+# (should be always) shu down any devices trying to use graphics
 while (!is.null(dev.list())) dev.off()
 # img <-
 # image_background(image_trim(img),
 # 'white')
+#Create an animation on the image using img created earlier and
+#go at a rate of 0.5 frames per second, or change frames 
+#every 2 seconds
 animation <- image_animate(img, fps = 0.5)
+#Show the animation
 animation
 ```
 
