@@ -1,0 +1,298 @@
+---
+title: "Project 3: Market Risk"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+# global reads, processing
+library(ggplot2)
+library(flexdashboard)
+library(shiny)
+library(QRM) #GPD fit
+library(qrmdata)
+library(xts)
+library(zoo)
+library(psych)
+library(quadprog)
+library(matrixStats)
+library(quantreg)
+library(moments)
+library(plotly)
+library(mvtnorm)
+library(plotly)
+
+#########################################################
+#
+# Exploratory Analysis
+#
+#########################################################
+#Removes all objects in this environment to blank out for the dashboard
+rm(list = ls())
+#Reading in the data
+data <- na.omit(read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/metaldata.csv"), header = TRUE))
+#Applies the log difference to the numeric columns in the data matrix and multiplies by 100 to get percentage
+data.r <- apply(log(data[,-1]), 2, diff) * 100
+#Finding the magnitude of the percent change with absolute value
+size <- na.omit(abs(data.r))
+
+#adds .size to the end of the column
+colnames(size) <- paste(colnames(size), ".size", sep = "")
+#If the returns is positive, make a new matrix have a 1 in that place
+#If the returns is negative, put a -1 in that place, otherwise a 0
+direction <- ifelse(data.r > 0, 1, ifelse(data.r < 0, -1, 0))
+#Adding .dir to the end of the column names in the dirextion data frame
+colnames(direction) <- paste(colnames(direction), ".dir", sep = "")
+#Making a vector of the dates
+dates <- as.Date(data[-1,1], "%m/%d/%Y")
+#Making dates characters
+dates.chr <- as.character(dates)
+#Combining all columns to make a values data frame
+values <- cbind(data.r, size, direction)
+#Creating tidy data frames
+data.df <- data.frame(dates = dates, returns = data.r, size = size, direction = direction)
+data.df.nd <- data.frame(dates = dates.chr, returns = data.r, size = size, direction = direction, stringsAsFactors = FALSE)
+
+#Creating a time series object
+data.xts <- na.omit(as.xts(values, dates))
+#Making a zoo object
+data.zr <- as.zooreg(data.xts)
+returns <- data.xts
+```
+
+Business Questions
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Freight Forwarder
+
+A freight forwarder with a fleet of bulk carriers wants to optimize their portfolio in the metals markets with entry into the nickel business and use of the tramp trade.  Tramp ships are the company's "swing" option without any fixed charter or other constraint. They allow the company flexibility in managing several aspects of freight uncertainty.   They have allocated \$250 million to purchase metals. The company wants us to:
+
+1.	Retrieve and begin to analyze data about potential commodities to diversify into
+2.	Compare potential commodities with existing commodities in conventional metals spot markets
+3.	Begin to generate economic scenarios based on events that may, or may not, materialize in the commodities
+4.	The company wants to mitigate their risk by diversifying their cargo loads
+
+Identify the optimal combination of Nickel, Copper, and Aluminium to trade
+
+1.	Product: Metals commodities and freight charters
+2.	Metal, Company, and Geography:
+    a. Nickel: MMC Norilisk, Russia
+    b. Copper: Codelco, Chile and MMC Norilisk, Russia
+    c. Aluminium: Vale, Brasil and Rio Tinto Alcan, Australia
+3.	Customers: Ship Owners, manufacturers, traders
+4.  All metals traded on the London Metal Exchange 
+
+### Key business questions
+
+- How would the performance of these commodities affect the size and timing of shipping arrangements?
+
+- How would the value of new shipping arrangements affect the value of our business with our current customers?
+
+- How would we manage the allocation of existing resources given we have just landed in this new market? 
+
+More specifically:
+
+1. What is the decision the freight-forwarder must make? List key business questions and data needed to help answer these questions and support the freight-forwarder's decision.
+
+2. Develop the stylized facts of the markets the freight-forwarder faces. Include level, returns, size times series plots. Calculate and display in a table the summary statistics, including quantiles, of each of these series. Use autocorrelation, partial autocorrelation, and cross correlation functions to understand some of the persistence of returns including leverage and volatility clustering effects. Use quantile regressions to develop the distribution of sensitivity of each market to spill-over effects from other markets. Interpret these stylized "facts" in terms of the business decision the freight-forwarder makes.
+
+3. How much capital would the freight-forwarder need? Determine various measures of risk in the tail of each metal's distribution. Then figure out a loss function to develop the portfolio of risk, and the determination of risk capital the freight-forwarder might need. Confidence intervals might be used to create a risk management plan with varying tail experience thresholds.
+
+4. More importantly, begin to import your data into this model. You will have to modify some of the column subsets and all of the titles.
+
+
+Loss analysis
+=======================================================================
+
+Input {.sidebar}
+-----------------------------------------------------------------------
+A quantile divides the returns distribution into two groups. For example 75\% of all returns may fall below a return value of 10\%. The distribution is thus divided into returns above 10\% and below 10\% at the 75\% quantile.
+
+Pull slide to the right to measure the risk of returns at desired quantile levels. The minimum risk quantile is 75\%. The maximum risk quantile is 99\%.
+
+
+```{r}
+sliderInput("alpha_q", label = "Risk measure quantiles (%):",
+            min = 0.75, max = 0.99, value = 0.75, step = 0.01)
+```
+
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Loss distribution
+
+Value at risk and expected shortfall of portfolio
+
+```{r}
+# Get last prices
+price.last <- as.numeric(head(data[, -1], n=1))
+# Specify the positions
+position.rf <- c(1, 1, 1) # equally weighted , one tonne each
+# And compute the position weights
+w <- position.rf * price.last
+# Fan these  the length and breadth of the risk factor series
+weights.rf <- matrix(w, nrow=nrow(data.r), ncol=ncol(data.r), byrow=TRUE)
+#head(rowSums((exp(data.r/100)-1)*weights.rf), n=3)
+## We need to compute exp(x) - 1 for very small x: expm1 accomplishes this
+#head(rowSums((exp(data.r/100)-1)*weights.rf), n=4)
+loss.rf <- -rowSums(expm1(data.r/100) * weights.rf)
+loss.rf.df <- data.frame(Loss = loss.rf, Distribution = rep("Historical", each = length(loss.rf)))
+## Simple Value at Risk and Expected Shortfall
+# render reactively generated plot
+renderPlotly({
+alpha.tolerance <- reactive({ifelse(input$alpha_q>1,0.99,ifelse(input$alpha_q<0,0.001,input$alpha_q))}) # alpha_q from sliderInput conditioned to fit plot
+VaR.hist <- quantile(loss.rf, probs=alpha.tolerance())# must use () to get reactive pointer's data from the slider
+## Just as simple Expected shortfall
+ES.hist <- median(loss.rf[loss.rf > VaR.hist])
+VaR.text <- paste("Value at Risk =\n", round(VaR.hist, 2)) # ="VaR"&c12
+ES.text <- paste("Expected Shortfall \n=", round(ES.hist, 2))
+title.text <- paste(round(alpha.tolerance()*100, 0), "% Loss Limits")
+# using histogram bars instead of the smooth density
+p <- ggplot(loss.rf.df, aes(x = Loss, fill = Distribution)) + geom_histogram(alpha = 0.8) + geom_vline(aes(xintercept = VaR.hist), linetype = "dashed", size = 1, color = "blue") + geom_vline(aes(xintercept = ES.hist), size = 1, color = "blue") + annotate("text", x = VaR.hist, y = 40, label = VaR.text) + annotate("text", x = ES.hist, y = 20, label = ES.text) + xlim(0, 500) + ggtitle(title.text)
+ggplotly(p)
+})
+```
+
+### Structure and summary
+
+Loss data frame structure
+
+```{r}
+str(loss.rf.df)
+```
+
+Summary of loss statistics
+
+```{r}
+summary(loss.rf.df)
+```
+
+### Inference
+
+Suppose management, or even more so wary investors, wanted to understand how much capital they could probably need to have to cover loss exposures. So far we have been using value at risk to set the threshold for the expected shortfall as a gross risk-informed measure of the amount of capital required against potential losses. To do this we would calculate an estimate of the range within which we could expect the expected shortfall to be, say, 95\% of the time. The range would then identify at least (lower bound) and at most (upper bound) the amount of capital needed for a given probability that our expresses our confidence.
+
+```{r }
+bootstrap_resample <- function (data, n_sample) sample(data, n_sample, replace=TRUE) 
+ES_calc <- function(data, prob){
+  data <- -as.matrix(data)
+  return(mean(data[data > quantile(data, prob),]))
+}
+ES_sample <- replicate(10000, ES_calc(bootstrap_resample (loss.rf, 250), 0.95))
+summary(ES_sample)
+
+q_0.025 <- quantile(ES_sample, 0.025)
+q_0.975 <- quantile(ES_sample, 0.975)
+q_0.500 <- quantile(ES_sample, 0.500)
+
+ES_sample_df <- data.frame(ES = ES_sample )
+ES_title <- "Expected Shortfall USD-EUR 95%"
+library(ggplot2)
+#ES_sample_df %>%
+ggplot(ES_sample_df, aes(x = ES)) + geom_density() + ggtitle(ES_title) +   geom_vline(xintercept = q_0.025, colour="red") + geom_vline(xintercept = q_0.975, colour="red") + geom_vline(xintercept = q_0.500, color = "blue")
+```
+
+Data Moments {data-orientation=rows}
+=======================================================================
+Row {.tabset}
+----
+
+###Quantile Regression
+
+```{r}
+#Function to use in roll apply
+corr_rolling <- function(x){
+  #Number of columns in x
+  dim <- ncol(x)
+  #calculate the correlation of r, nut only include the the 
+  #lower triangle of the correlation matrix because the resulting
+  #matrix will be c x c
+  corr_r <- cor(x)[lower.tri(diag(dim), diag = FALSE)]
+  #Return all teh correlations
+  return(corr_r)
+}
+#Function to use in the rollapply function
+vol_rolling <- function(x){
+  #Importing the library for matrix statistics
+  library(matrixStats)
+  #calculate the standard deviation in the column
+  vol_r <- colSds(x)
+  #return the SDs
+  return(vol_r)
+}
+#making a matrix of only the returns (no dates)
+ALL.r <- data.xts[, 1:3]
+#Creating a window of 90 days
+window <- 90 
+#apply the rolling correlation function on the returns data
+corr_r <- rollapply(ALL.r, width = window, corr_rolling, align = "right", by.column = FALSE)
+#giving column names to the correlation matrix that has the two metals being measured
+colnames(corr_r) <- c("nickel.copper", "nickel.aluminium", "copper.aluminium")
+#apply the rolling correlation function on the returns data
+vol_r <- rollapply(ALL.r, width = window, vol_rolling, align = "right", by.column = FALSE)
+#giving the column names to specify they are volatilities being measured
+colnames(vol_r) <- c("nickel.vol", "copper.vol", "aluminium.vol")
+#Creating a vector that has the dates for all rows
+year <- format(index(corr_r), "%Y")
+#Creates a dataframe that has all the rolling calculations and all the raw data
+#and the year of that piece of data
+r_corr_vol <- merge(ALL.r, corr_r, vol_r, year)
+
+#importing library for quantile regression
+library(quantreg)
+#Creating a vector of quantiles from 0.05 to 0.95 in increments of 0.05
+taus <- seq(0.05, 0.95, 0.05)
+#Fitting a quantile regression of nickel on copper
+fit.rq.nickel.copper <- rq(log(nickel.copper) ~ 
+    log(copper.vol), tau = taus, data = r_corr_vol)
+#Fitting linear regression on copper and nickel
+fit.lm.nickel.copper <- lm(log(nickel.copper) ~ 
+    log(copper.vol), data = r_corr_vol)
+#Creating a summary of the quantile regreassion fit
+ni.cu.summary <- summary(fit.rq.nickel.copper, 
+    se = "boot")
+#plotting the summary/quantile regression coefficients
+plot(ni.cu.summary)
+```
+
+#### Quantile Regression
+Text
+
+### Autocorrelation
+Text
+
+### Distribution
+Text
+
+Row {.tabset}
+---
+### Metals Returns
+Text about returns
+
+```{r}
+#Title for the plot
+title.chg <- "Metals Market Percent Changes"
+#Plotting the returns for copper, nickel, and aluminum from -5 to 5
+p1 <- autoplot.zoo(data.xts[, 1:3]) + ggtitle(title.chg) + 
+    ylim(-5, 5)
+ggplotly(p1)
+```   
+ 
+### Metals Volatility
+
+Text about volatility
+    
+```{r}
+#plotting the magnitude of change for the metals
+title2 <- "Metals Market Magnitude of Change"
+p2 <- autoplot.zoo(data.xts[, 4:6]) + ggtitle(title2) + 
+    ylim(-.5, 5)
+ggplotly(p2)
+```
+

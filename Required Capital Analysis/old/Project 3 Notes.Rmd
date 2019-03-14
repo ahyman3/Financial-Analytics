@@ -1,0 +1,59 @@
+---
+title: "Project Notes"
+author: "Alex Hyman, Matt LaFlair, Robin Kim, Sasha Singh"
+date: "8/14/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Definitions
+
+*Freight Forwader - a person or company that organizes shipments for individuals or corporations to get goods from the manufacturer or producer to a market, customer or final point of distribution
+
+*Tramp trade - A boat or ship engaged in the tramp trade is one which does not have a fixed schedule or published ports of call. Trades on the spot instead of for a future delivery.
+
+##Introduction
+There are a fleet of bulk carriers that can carry a certain amount of metals. Wants to optimize portfoliio by entry into the nickel business and use of the tramp trade. The demand of the metal at the market is what determines the value. This price varies widely in the spot markets. The company allocates \$250 million to manage receivables ($250 million shipments?).
+
+We need to:
+*Retrieve and begin to analyze data about potential commodities for diversification
+*Compare potential commodities with existing commodities in conventional metal spot markets
+*Begin to generate economic scenarios based on events that may, or may not, materialize in the commodities
+*The company wants to mitigate their risk by diversifying their cargo loads. This risk measures the amount of capital the company needs to maintain its portfolio of services.
+
+Additionally:
+1. Product: Metals commodities and freight charters
+2. Metal, Company, and Geography:
+    a. Nickel: MMC Norilisk, Russia
+    b. Copper: Codelco, Chile and MMC Norilisk, Russia
+    c. Aluminium: Vale, Brasil and Rio Tinto Alcan, Australia
+3. Customers: Ship Owners, manufacturers, traders
+4. All metals are traded on the London Metal Exchange
+
+###Key business questions
+1. How would the performance of these commodities affect the size and timing of shipping arrangements?
+2. How would the value of new shipping arrangements affect the value of our business with our current customers?
+3. How would we manage the allocation of existing resources given we have just landed in this new market?
+
+###Getting to a reponse: more detailed questions
+1. What is the decision the freight-forwarder must make?
+* List key business questions and data needed to help answer these questions and support the freight-forwarder’s decision
+* Retrieve data and build financial market detail into the data story behind the questions.
+
+2. Develop the stylized facts of the markets the freight-forwarder faces. Include level, returns, size times series plots. Calculate and display in a table the summary statistics, including quantiles, of each of these series.
+* Use autocorrelation, partial autocorrelation, and cross correlation functions to understand some of the persistence of returns including leverage and volatility clustering effects.
+* Use quantile regressions to develop the distribution of sensitivity of each market to spill-over effects from other markets
+* Interpret these stylized “facts” in terms of the business decision the freight-forwarder makes
+
+3. How much capital would the freight-forwarder need?
+* Determine various measures of risk in the tail of each metal’s distribution
+* Then figure out a loss function to develop the portfolio of risk, and the determination of risk capital the freight-forwarder might need
+* Confidence intervals might be used to create a risk management plan with varying tail experience thresholds.
+
+
+```{r cars}
+summary(cars)
+```

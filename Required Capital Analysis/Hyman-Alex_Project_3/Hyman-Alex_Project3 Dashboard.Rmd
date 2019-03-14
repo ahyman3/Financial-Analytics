@@ -1,0 +1,547 @@
+---
+title: "Project 3: Market Risk"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+# global reads, processing
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(flexdashboard)
+library(shiny)
+library(QRM) #GPD fit
+library(qrmdata)
+library(xts)
+library(zoo)
+library(psych)
+library(quadprog)
+library(matrixStats)
+library(quantreg)
+library(moments)
+library(plotly)
+library(mvtnorm)
+library(plotly)
+
+#########################################################
+#
+# Exploratory Analysis
+#
+#########################################################
+#Removes all objects in this environment to blank out for the dashboard
+rm(list = ls())
+#Reading in the data
+data <- na.omit(read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/metaldata.csv"), header = TRUE))
+#Applies the log difference to the numeric columns in the data matrix and multiplies by 100 to get percentage
+data.r <- apply(log(data[,-1]), 2, diff) * 100
+#Finding the magnitude of the percent change with absolute value
+size <- na.omit(abs(data.r))
+
+#adds .size to the end of the column
+colnames(size) <- paste(colnames(size), ".size", sep = "")
+#If the returns is positive, make a new matrix have a 1 in that place
+#If the returns is negative, put a -1 in that place, otherwise a 0
+direction <- ifelse(data.r > 0, 1, ifelse(data.r < 0, -1, 0))
+#Adding .dir to the end of the column names in the dirextion data frame
+colnames(direction) <- paste(colnames(direction), ".dir", sep = "")
+#Making a vector of the dates
+dates <- as.Date(data[-1,1], "%m/%d/%Y")
+#Making dates characters
+dates.chr <- as.character(dates)
+#Combining all columns to make a values data frame
+values <- cbind(data.r, size, direction)
+#Creating tidy data frames
+data.df <- data.frame(dates = dates, returns = data.r, size = size, direction = direction)
+data.df.nd <- data.frame(dates = dates.chr, returns = data.r, size = size, direction = direction, stringsAsFactors = FALSE)
+
+#Creating a time series object
+data.xts <- na.omit(as.xts(values, dates))
+#Making a zoo object
+data.zr <- as.zooreg(data.xts)
+returns <- data.xts
+```
+
+Business Questions
+=======================================================================
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Freight Forwarder
+
+A freight forwarder with a fleet of bulk carriers wants to optimize their portfolio in the metals markets with entry into the nickel business and use of the tramp trade.  Tramp ships are the company's "swing" option without any fixed charter or other constraint. They allow the company flexibility in managing several aspects of freight uncertainty.   They have allocated \$250 million to purchase metals. The company wants us to:
+
+1.	Retrieve and begin to analyze data about potential commodities to diversify into
+2.	Compare potential commodities with existing commodities in conventional metals spot markets
+3.	Begin to generate economic scenarios based on events that may, or may not, materialize in the commodities
+4.	The company wants to mitigate their risk by diversifying their cargo loads
+
+Identify the optimal combination of Nickel, Copper, and Aluminium to trade
+
+1.	Product: Metals commodities and freight charters
+2.	Metal, Company, and Geography:
+    a. Nickel: MMC Norilisk, Russia
+    b. Copper: Codelco, Chile and MMC Norilisk, Russia
+    c. Aluminium: Vale, Brasil and Rio Tinto Alcan, Australia
+3.	Customers: Ship Owners, manufacturers, traders
+4.  All metals traded on the London Metal Exchange 
+
+### Key business questions
+
+1. How would the performance of these commodities affect the size and timing of shipping arrangements?
+* The performance of these commodities would certainly affect the size and timing of shipping arrangements. Since tramp ships trade on the spot market with no fixed schedule or itinerary/ports-of-call, the shipping arrangement is tremendously affected, especially since all three metals are being shipped from various locations in different timezones. The size on the other hand, can be negatively or positively affected by the demand of the metals. If there isn’t a demand for these metals in the market, there certainly wouldn’t be a need to purchase these metals in bulk. While the term buy low, sell high is highly recommended by investors, it would not make sense in this case.
+
+2. How would the value of new shipping arrangements affect the value of our business with our current	Customers?
+* The value of this new shipping arrangement will affect the value of our business with our current customers (ship owners, manufacturers, traders) negatively because the ship owners would have to ship more of the product, manufacturers would have to make more of the product, and the traders would not be able to purchase the product when they want. Prior to the use of the tramp trade, these customers received their metals in a timely scheduled manner, since with the new arrangement, these metals are received at random times, this causes our loyal customers to find our company as unreliable. 
+
+3. How would we manage the allocation of existing resources given we have just landed in this new market?
+* To manage the allocation of existing resources given we have just landed in this new market, we would have to consider the capital the ship owner pays and the operating costs of the vessel. All in all, the volatility is rarely constant and often has a structure (mean reversion) and is dependent on the past; where extreme events are likely to happen with other extreme events.
+
+
+Data Moments {data-orientation=rows}
+=======================================================================
+Inputs {data-width=350 .sidebar}
+-------------------------------------
+When looking at our historical data it is important to see how the distriburion typically behaves. This is done by quantile regression, looking at the autocorrelation, looking at cross correlation, and by getting the statistics describing the distribution in order for future modeling
+
+* Quanitle Regression:
+    + Linear regression is not sufficient in providing confidence in predicting copper/nickel market movement correlations given the volatility of copper
+    + At higher quantiles, the relationship between the copper/nickel correlation and the copper volatility becomes near zero
+    
+* Autocorrelation
+    + Nickel has almost no significant correlation to past values of nickel
+    + Copper autocorrelation shows some relationship with the 4,5,and 20th lag days in the nickel market and a slight correlation to the 15,16,17th day in the aluminum market
+  
+* Cross Correlation:
+    + Same-day of Price correlation exists of around ~0.36 coefficient
+    +  lag of 4, 6, and 20 show significant relationship
+
+* Distribution Statistics:
+    + All three market returns and volatility magnitudes have a moderately high kurtosis
+    + The skewness of the returns shows that they are relatively asymmetric, with copper and aluminum having a very slight skew in the negative direction
+
+Row {data-height=650 .tabset}
+----
+
+###Quantile Regression
+
+```{r}
+#Function to use in roll apply
+corr_rolling <- function(x){
+  #Number of columns in x
+  dim <- ncol(x)
+  #calculate the correlation of r, nut only include the the 
+  #lower triangle of the correlation matrix because the resulting
+  #matrix will be c x c
+  corr_r <- cor(x)[lower.tri(diag(dim), diag = FALSE)]
+  #Return all teh correlations
+  return(corr_r)
+}
+#Function to use in the rollapply function
+vol_rolling <- function(x){
+  #Importing the library for matrix statistics
+  library(matrixStats)
+  #calculate the standard deviation in the column
+  vol_r <- colSds(x)
+  #return the SDs
+  return(vol_r)
+}
+#making a matrix of only the returns (no dates)
+ALL.r <- data.xts[, 1:3]
+#Creating a window of 90 days
+window <- 90 
+#apply the rolling correlation function on the returns data
+corr_r <- rollapply(ALL.r, width = window, corr_rolling, align = "right", by.column = FALSE)
+#giving column names to the correlation matrix that has the two metals being measured
+colnames(corr_r) <- c("nickel.copper", "nickel.aluminium", "copper.aluminium")
+#apply the rolling correlation function on the returns data
+vol_r <- rollapply(ALL.r, width = window, vol_rolling, align = "right", by.column = FALSE)
+#giving the column names to specify they are volatilities being measured
+colnames(vol_r) <- c("nickel.vol", "copper.vol", "aluminium.vol")
+#Creating a vector that has the dates for all rows
+year <- format(index(corr_r), "%Y")
+#Creates a dataframe that has all the rolling calculations and all the raw data
+#and the year of that piece of data
+r_corr_vol <- merge(ALL.r, corr_r, vol_r, year)
+
+#importing library for quantile regression
+library(quantreg)
+#Creating a vector of quantiles from 0.05 to 0.95 in increments of 0.05
+taus <- seq(0.05, 0.95, 0.05)
+#Fitting a quantile regression of nickel on copper
+fit.rq.nickel.copper <- rq(log(nickel.copper) ~ 
+    log(copper.vol), tau = taus, data = r_corr_vol)
+#Fitting linear regression on copper and nickel
+fit.lm.nickel.copper <- lm(log(nickel.copper) ~ 
+    log(copper.vol), data = r_corr_vol)
+#Creating a summary of the quantile regreassion fit
+ni.cu.summary <- summary(fit.rq.nickel.copper, 
+    se = "boot")
+#plotting the summary/quantile regression coefficients
+plot(ni.cu.summary)
+```
+
+### Autocorrelation
+
+####Returns and Magnitude
+
+```{r}
+#Autocorrelation in returns for the metals
+acf1 <- acf(coredata(data.xts[, 1:3]), plot = T)  # returns
+#Autocorrelation for magnitude of returns
+acf2 <- acf(coredata(data.xts[, 4:6]))  # sizes
+```
+
+
+### Cross Correlation
+
+```{r}
+# making time series of nickel returns
+one <- ts(data.df$returns.nickel)
+# making time series of copper returns
+two <- ts(data.df$returns.copper)
+#Creating title for ccf plot
+title.chg <- "Nickel vs. Copper"
+#ccf for nickel and copper
+ccf(one, two, main = title.chg, lag.max = 20, 
+    xlab = "", ylab = "", ci.col = "red")
+```
+
+
+### Distribution Statistics
+
+```{r}
+#Data Moments for nickel and 
+data_moments <- function(data) {
+    library(moments)
+    library(matrixStats)
+    mean.r <- colMeans(data)
+    median.r <- colMedians(data)
+    sd.r <- colSds(data)
+    IQR.r <- colIQRs(data)
+    skewness.r <- skewness(data)
+    kurtosis.r <- kurtosis(data)
+    result <- data.frame(mean = mean.r, 
+        median = median.r, std_dev = sd.r, 
+        IQR = IQR.r, skewness = skewness.r, 
+        kurtosis = kurtosis.r)
+    return(result)
+}
+# Run data moments for the returns and sizes of all metals
+answer <- data_moments(data.xts[, 1:6])
+# Build pretty table with 4 digits
+answer <- round(answer, 4)
+#Knitting the table
+knitr::kable(answer)
+```
+
+
+
+Row {.tabset .tabset-fade}
+---
+### Metals Returns
+Text about returns
+
+```{r}
+#Title for the plot
+title.chg <- "Metals Market Percent Changes"
+#Plotting the returns for copper, nickel, and aluminum from -5 to 5
+p1 <- autoplot.zoo(data.xts[, 1:3]) + ggtitle(title.chg) + 
+    ylim(-5, 5)
+ggplotly(p1)
+```   
+ 
+### Metals Volatility
+
+Text about volatility
+    
+```{r}
+#plotting the magnitude of change for the metals
+title2 <- "Metals Market Magnitude of Change"
+p2 <- autoplot.zoo(data.xts[, 4:6]) + ggtitle(title2) + 
+    ylim(-.5, 5)
+ggplotly(p2)
+```
+
+Portfolio Loss Analysis
+====
+Input {.sidebar}
+-----------------------------------------------------------------------
+For loss analysis, it is important to have an amount of risk in mind that you are willing give up. The level of risk is know as the Value at Risk (VaR), which is the amount of money you are willing to lose. The VaR is determined my finding the dollar amount that losses are less than the value at the rate of risk. The estimated shortfall is the average of all values greater than the VaR in a historical distribution
+
+```{r}
+sliderInput("alpha_q", label = "Risk measure quantiles (%):",
+            min = 0.75, max = 0.99, value = 0.75, step = 0.01)
+```
+
+The threshold for loss is typically what you are insured for, more than likely at the expected shortfall. The loss exceedance chart is the average of how much more than your insured amount you are likely to lose, if the losses are greater than the insured amount. A confidence interval has been provided in order to give a better idea of what would be likely.
+
+```{r}
+sliderInput("confint", label = "Confidence Interval Loss Exceedance:",
+            min = 0.75, max = 0.99, value = 0.75, step = 0.01)
+```
+
+Column {.tabset}
+-----------------------------------------------------------------------
+
+### Loss Distribution
+
+```{r}
+#Getting the first days prices for the metals in our data
+price.last <- as.numeric(tail(data[, 
+    -1], n = 1))
+# we have 1/3 ton of each metal
+position.rf <- c(1/3, 1/3, 1/3)
+#The price of the metalwe started with is our positiion 
+#multiplied by the prices on the first day we have data
+w <- position.rf * price.last
+# Creating a matrix of our starting prices to use in
+#the modeling of risk
+weights.rf <- matrix(w, nrow = nrow(data.r), 
+    ncol = ncol(data.r), byrow = TRUE)
+#Creating a data frame that shows how much was lost, determined
+#by the weights we started with and percent change in price we calculated
+#And summing the row to see how much we lost that day. Rowsums is negative 
+#to reflect losses
+loss.rf <- -rowSums(expm1(data.r/100) * 
+    weights.rf)
+#Putting the daily losses series into a data frame and putting in 
+#"Historical" to show that this is based on historical data
+loss.rf.df <- data.frame(Loss = loss.rf, 
+    Distribution = rep("Historical", 
+        each = length(loss.rf)))
+## How much is our value at risk for having nickel, aluminum, and copper
+#at 95%
+alpha.tolerance <- reactive({ifelse(input$alpha_q>1,0.99,ifelse(input$alpha_q<0,0.001,input$alpha_q))})
+renderPlotly({
+VaR.hist <- quantile(loss.rf, probs = alpha.tolerance(), 
+    names = FALSE)
+## Calculating expected shortfall
+ES.hist <- mean(loss.rf[loss.rf > VaR.hist])
+VaR.text <- paste("Value at Risk =\n", 
+    round(VaR.hist, 2))  # ='VaR'&c12
+ES.text <- paste("Expected Shortfall \n=", 
+    round(ES.hist, 2))
+title.text <- paste(round(alpha.tolerance() * 
+    100, 0), "% Loss Limits")
+# using histogram bars instead of the
+# smooth density only showing potential losses
+p <- ggplot(loss.rf.df, aes(x = Loss, 
+    fill = Distribution)) + geom_histogram(alpha = 0.8, bins = 30) + 
+    geom_vline(aes(xintercept = VaR.hist), 
+        linetype = "dashed", size = 1, 
+        color = "blue") + geom_vline(aes(xintercept = ES.hist), 
+    size = 1, color = "blue") + annotate("text", 
+    x = VaR.hist - 45, y = 60, label = VaR.text) + 
+    annotate("text", x = ES.hist + 50, y = 20, 
+        label = ES.text) + xlim(0, 500) + 
+    ggtitle(title.text)
+ggplotly(p)
+})
+```
+
+
+### Threshold for Loss
+
+Value at risk and expected shortfall of portfolio
+
+```{r}
+#Getting the first days prices for the metals in our data
+price.last <- as.numeric(tail(data[, 
+    -1], n = 1))
+# we have 1/3 ton of each metal
+position.rf <- c(1/3, 1/3, 1/3)
+#The price of the metalwe started with is our positiion 
+#multiplied by the prices on the first day we have data
+w <- position.rf * price.last
+# Creating a matrix of our starting prices to use in
+#the modeling of risk
+weights.rf <- matrix(w, nrow = nrow(data.r), 
+    ncol = ncol(data.r), byrow = TRUE)
+loss.rf <- -rowSums(expm1(data.r/100) * weights.rf)
+loss.rf.df <- data.frame(Loss = loss.rf, Distribution = rep("Historical", each = length(loss.rf)))
+#Making sure daily loss data is stored in a vector
+data <- as.vector(loss.rf)
+#What is the least amount of money we had lost (for xlim)
+umin <- min(data)
+#What was our largest loss (for xlim)
+umax <- max(data)
+# number of exceedances we want to plot
+nint <- 100
+# creating vector to contain the number of exceedances we want to plot
+grid.0 <- numeric(nint)
+#Storing the average exceedance in the vector e
+e <- grid.0
+#Storing the upper confidence interval in the upper vector
+upper <- grid.0
+# storing the lower confidence interval in the lower variable
+lower <- grid.0 
+#creating a threshold from the minimum loss to the maximum with 100 different breaks
+u <- seq(umin, umax, length = nint)  # threshold u grid
+## Simple Value at Risk and Expected Shortfall
+# render reactively generated plot
+renderPlotly({
+alpha <- reactive({ifelse(input$confint>1,0.99,ifelse(input$confint<0,0.001,input$confint))})
+alpha.tolerance <- reactive({ifelse(input$alpha_q>1,0.99,ifelse(input$alpha_q<0,0.001,input$alpha_q))})
+var <- quantile(loss.rf, probs = alpha.tolerance(), names = FALSE)
+ES <- mean(loss.rf[loss.rf > var])
+for (i in 1:nint) {
+    #subset data that is greater than the threshold
+    data <- data[data > u[i]]
+    #subtract the threshold from the data, and store the mean of that value in the
+    #average exceedances vector
+    e[i] <- mean(data - u[i])
+    #Calculate the standard deviation for the data greater than the threshold
+    sdev <- sqrt(var(data))  
+    #How many samples are in the data
+    n <- length(data)
+    #The confidence limits for this threshold is calculated around the mean with a 
+    #confidence interval of 5, meaning upper limit is at 97.5% and lower 2.5%
+    #So adding the confidence interval of 97.5% to the mean
+    upper[i] <- e[i] + (qnorm((1 + alpha())/2) * 
+        sdev)/sqrt(n)
+    #Subracting confidence interval from mean
+    lower[i] <- e[i] - (qnorm((1 + alpha())/2) * 
+        sdev)/sqrt(n)
+}
+#Creating a data frame with the threshold for loss, average of how
+#much greater the losses are than our threshold for loss, and the 
+#upper and lower limits for the average exceedance for our threshold
+mep.df <- data.frame(threshold = u, threshold.exceedances = e, 
+    lower = lower, upper = upper)
+mep.df <- data.frame(threshold = u, threshold.exceedances = e, 
+    lower = lower, upper = upper)
+#with the thresholds and limits df, use the threshold for loss as the x
+#and the average of how much greater the losses are than the threshold as y
+upperL <- paste("upper", round((1- (1- alpha())/2) * 100, 2), "%")
+lowerL <- paste("lower", round((1- alpha())/2 * 100, 2), "%")
+ES.label <- paste("Expected Shortfall:\n$", round(ES,2), sep = "")
+p <- ggplot(mep.df, aes(x = threshold, 
+    y = threshold.exceedances)) + geom_line() +         #and make it a line plot
+    geom_line(aes(x = threshold, y = lower),            #draw the upper limit as a red line
+        colour = "red") + geom_line(aes(x = threshold,  #draw the lower limit as a red line
+    y = upper), colour = "red") + annotate("text",      #Add text showing the upper and lower limits
+    x = 400, y = 200, label = upperL) + 
+    annotate("text", x = 200, y = 0, 
+        label = lowerL) + geom_vline(xintercept = ES, color = "blue", size = 1) +
+  annotate("text", x = ES- 90, y = 450, label = ES.label)
+ggplotly(p)
+})
+```
+
+Modeling Distribution
+====
+Column {.sidebar}
+---
+Because is risk in our business model, it is important to create a model estimating how much money we could lose in an extreme situation. With low density distributions, such as with distribution tails, it is usual difficult to model. The right skewed generalized pareto distribution helps model these low density data sets to predict future losses for risk mitigation and development business strategy. Below is a slider to use in creating a threshold for risk. A pareto distribution was created fitting historical data and was randomly sampled from this distribution when calculating the VaR and expected shortfall.
+
+```{r}
+sliderInput("gpd_confint", label = "Confidence Interval Loss Exceedance:",
+            min = 0.75, max = 0.99, value = 0.75, step = 0.01)
+```
+
+Column {.tabset}
+---
+###Generalized Pareto Distribution
+```{r}
+renderPlotly({
+## Toleranvce for risk
+alpha.tolerance <- reactive({ifelse(input$gpd_confint>1,0.99,ifelse(input$gpd_confint<0,0.001,input$gpd_confint))})
+#getting the losses at that tolerance for risk
+u <- quantile(loss.rf, alpha.tolerance(), 
+    names = FALSE)
+#Losses exceed out tolaerance by how much?
+loss.excess <- loss.rf[loss.rf > u] - u
+#Using the generalized pareto distribution to fit losses with
+#thresholds determined by u
+fit <- fit.GPD(loss.rf, threshold = u)  
+#getting the fitted shape
+xi.hat <- fit$par.ests[["xi"]]  
+#getting the fitted scale
+beta.hat <- fit$par.ests[["beta"]]
+#saving the losses in the data variable
+data <- loss.rf
+#how often is loss greater than our tolerance
+n.relative.excess <- length(loss.excess)/length(loss.rf)
+#VaR for pareto
+VaR.gpd <- u + (beta.hat/xi.hat) * (((1 - 
+    alpha.tolerance())/n.relative.excess)^(-xi.hat) - 
+    1)
+#estimated shortfall for pareto
+ES.gpd <- (VaR.gpd + beta.hat - xi.hat * 
+    u)/(1 - xi.hat)
+# Plot away
+VaRgpd.text <- paste("GPD: Value at Risk =\n$", 
+    round(VaR.gpd, 2))
+ESgpd.text <- paste("Expected Shortfall =\n$", 
+    round(ES.gpd, 2))
+title.text <- paste(VaRgpd.text, ESgpd.text, 
+    sep = " ")
+loss.plot <- ggplot(loss.rf.df, aes(x = Loss, 
+    fill = Distribution)) + geom_density(alpha = 0.2)
+loss.plot <- loss.plot + geom_vline(aes(xintercept = VaR.gpd), 
+    colour = "blue", linetype = "dashed", 
+    size = 0.8)
+loss.plot <- loss.plot + geom_vline(aes(xintercept = ES.gpd), 
+    colour = "blue", size = 0.8) + 
+  annotate('text', x = VaR.gpd - 25, y = 0.0075, label = VaRgpd.text) + 
+  annotate('text', x = ES.gpd + 75, y = 0.005, label = ESgpd.text)
+loss.plot <- loss.plot + xlim(0, 500) + ggtitle(title.text)
+ggplotly(loss.plot)
+})
+```
+
+###Historical Overlay
+```{r}
+renderPlotly({
+alpha.tolerance <- reactive({ifelse(input$gpd_confint>1,0.99,ifelse(input$gpd_confint<0,0.001,input$gpd_confint))})
+#getting the losses at that tolerance for risk
+u <- quantile(loss.rf, alpha.tolerance(), 
+    names = FALSE)
+#Losses exceed out tolaerance by how much?
+loss.excess <- loss.rf[loss.rf > u] - u
+#Using the generalized pareto distribution to fit losses with
+#thresholds determined by u
+fit <- fit.GPD(loss.rf, threshold = u)  
+#getting the fitted shape
+xi.hat <- fit$par.ests[["xi"]]  
+#getting the fitted scale
+beta.hat <- fit$par.ests[["beta"]]
+data <- loss.rf
+#how often is loss greater than our tolerance
+n.relative.excess <- length(loss.excess)/length(loss.rf)
+#VaR for pareto
+VaR.gpd <- u + (beta.hat/xi.hat) * (((1 - 
+    alpha.tolerance())/n.relative.excess)^(-xi.hat) - 
+    1)
+#estimated shortfall for pareto
+ES.gpd <- (VaR.gpd + beta.hat - xi.hat * 
+    u)/(1 - xi.hat)
+VaRgpd.text <- paste("GPD: Value at Risk =\n$", 
+    round(VaR.gpd, 2), sep = "")
+ESgpd.text <- paste("GPD Expected Shortfall =\n$", 
+    round(ES.gpd, 2), sep ="")
+set.seed(1016)
+n.sim <- 1297
+VaR.hist <- quantile(loss.rf, probs = alpha.tolerance(), 
+    names = FALSE)
+## Calculating expected shortfall
+ES.hist <- mean(loss.rf[loss.rf > VaR.hist])
+#randomly modeling the losses for pareto
+gpd.loss<- rGPD(n.sim, xi.hat, beta.hat)
+p.df <- data.frame(Loss = c(loss.rf, gpd.loss), Distribution = rep(c("Historical", "GPD"), each = n.sim))
+
+p <- ggplot(p.df, aes(x = Loss, fill = Distribution)) + geom_density(alpha = 0.3) + geom_vline(aes(xintercept = VaR.gpd), color = "red", size = 1) + geom_vline(aes(xintercept = ES.gpd),
+color = "red", linetype = "dashed", size = 1) + xlim(0, 800) +
+    annotate('text', x = VaR.gpd, y = 0.0075, label = VaRgpd.text) + 
+    annotate('text', x = ES.gpd, y = 0.005, label = ESgpd.text)
+
+ggplotly(p)
+})
+```
+
+
