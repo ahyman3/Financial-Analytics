@@ -1,0 +1,641 @@
+---
+title: 'Project 4: Portfolio Optimization'
+author: "Alex Hyman"
+date: "9/8/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+We continue our freight-forward tramp trade on the metals spot market, but we wish to optimize our metal holding instead of have an equal weight in all metals. We will compute optimal holdings of risky and risk-free assets for the Markowitz mean-variance model. We will then build a simple financial web application. With this tool we can also explore impact of the extremes of distributions of financial returns on portfolio results.
+
+We continue to have allocated $250 million in purchased metals. With this in mind, we are required to:
+* Retrieve and begin to analyze data about potential commodities to diversify into
+* Compare potential commodities with existing commodities in conventional metals spot markets
+* Begin to generate economic scenarios based on events that may, or may not, materialize in the commodities
+* The company wants to mitigate their risk by diversifying their cargo loads
+
+### Question 1: Business Questions
+
+The freight forwarder we are working for is currently looking into entering the nickel market, having already trading aluminum and copper. The first question we need to answer is: Would entering into the nickel trade increase risk? If it does increase risk, how can we position our other assets to mitigate this risk?
+
+Another thing we need to consider is whether we should plan to short one of the metals. Since we are planning on shipping them, this may not have been considered, but in order to optimize our portfolio it may be necessary. We can model both scenarios to bring to management's attention.
+
+First, we must read in the data and attempt to describe the distributions in the returns. The data we are utilizing is price data in the metals, with which we will calculate the difference in the log if the value to come up with the percent change in prices. Then we determine which direction the price changed and calculate the magnitude of the change to measure volatility. Finally, we will calculate the data moments for the distribution in percent change in price to come up with descriptors for the distributions.
+
+```{r include=FALSE}
+library(ggplot2)
+library(flexdashboard)
+library(shiny)
+library(QRM)
+library(qrmdata)
+library(xts)
+library(zoo)
+library(psych)
+library(matrixStats)
+library(quadprog)
+library(plotly)
+library(reshape2)
+```
+
+```{r}
+#Removes all objects in this environment to blank out for the dashboard
+rm(list = ls())
+#Reading in the data
+data <- na.omit(read.csv(url("https://turing.manhattan.edu/~wfoote01/finalytics/data/metaldata.csv"), header = TRUE))
+#Applies the log difference to the numeric columns in the data matrix and multiplies by 100 to get percentage
+data.r <- apply(log(data[,-1]), 2, diff) * 100
+#Finding the magnitude of the percent change with absolute value
+size <- na.omit(abs(data.r))
+
+#adds .size to the end of the column
+colnames(size) <- paste(colnames(size), ".size", sep = "")
+#If the returns is positive, make a new matrix have a 1 in that place
+#If the returns is negative, put a -1 in that place, otherwise a 0
+direction <- ifelse(data.r > 0, 1, ifelse(data.r < 0, -1, 0))
+#Adding .dir to the end of the column names in the dirextion data frame
+colnames(direction) <- paste(colnames(direction), ".dir", sep = "")
+#Making a vector of the dates
+dates <- as.Date(data[-1,1], "%m/%d/%Y")
+#Making dates characters
+dates.chr <- as.character(dates)
+#Combining all columns to make a values data frame
+values <- cbind(data.r, size, direction)
+#Creating tidy data frames
+data.df <- data.frame(dates = dates, returns = data.r, size = size, direction = direction)
+data.df.nd <- data.frame(dates = dates.chr, returns = data.r, size = size, direction = direction, stringsAsFactors = FALSE)
+
+#Creating a time series object
+data.xts <- na.omit(as.xts(values, dates))
+#Making a zoo object
+data.zr <- as.zooreg(data.xts)
+returns <- data.xts
+
+#Data Moments for nickel and 
+data_moments <- function(data) {
+    library(moments)
+    library(matrixStats)
+    mean.r <- colMeans(data)
+    median.r <- colMedians(data)
+    sd.r <- colSds(data)
+    IQR.r <- colIQRs(data)
+    skewness.r <- skewness(data)
+    kurtosis.r <- kurtosis(data)
+    result <- data.frame(mean = mean.r, 
+        median = median.r, std_dev = sd.r, 
+        IQR = IQR.r, skewness = skewness.r, 
+        kurtosis = kurtosis.r)
+    return(result)
+}
+# Run data moments for the returns and sizes of all metals
+answer <- data_moments(data.xts[, 1:3])
+# Build pretty table with 4 digits
+answer <- round(answer, 4)
+#Knitting the table
+knitr::kable(answer)
+```
+
+The above compiled table shows us statistics related to the aluminum, copper and nickel markets. All three market returns and volatility magnitudes have a moderately high kurtosis, relative to the normal distribution of 3. This indicates that the tails are heavy, more so in the volatility magnitudes. The directional skewness and kurtosis reveal little information about our data and thus are not shown. However, it is worth nothing that the mean copper direction yields that it tends to move in the positive direction ~5% of the time. The directional movement of the nickel market tends to further support our prior hypothesis of correlation existing between itself and the copper market as it too has a 4.5% favoring in the positive direction.
+
+The skewness of the returns shows that they are relatively asymmetric, with copper and aluminum having a very slight skew in the negative direction. Which brings us to the volatility skewness; copper, nickel and aluminum volatility tend to have a significant movement in their respective markets but directionality is not known due to it being absolute values. The interquartile range, middle 50% of the returns data, shows higher returns for nickel than copper and aluminum. This is further supported by the average nickel returns which tend to be higher than that of copper and aluminum. Our original visual inspection of the time series data indicated higher volatility magnitudes for nickel returns is supported by higher (~40%)  mean volatility magnitudes for nickel than the other commodities.
+
+The provided stylized facts paint an interesting picture of the copper, aluminum and nickel markets. What is clear is that if one is looking to diversify investments in regards to metal commodities to eliminate systematic risks solely investing in the nickel and copper market is not wise. It is best to choose either nickel or copper, depending on your acceptable risk in regard to volatility magnitude and pair it with aluminum investments as there is little correlation between the nickel/copper and the aluminum markets.
+
+Next, we will look to various target returns and the trade-off in risk between the three metals. First we will come up with potential possible returns by finding the positive returns in the 95% for each of the metals. This will be used to index the returns of the other metals when the metal we are evaluating is in the extremes of positive returns. We will then find the average returns for each of the metals in the subset of data we are looking at, and then determine the standard deviations of metals. We will then create a constraint matrix, ensuring all the weights add up to 1, and develop a vector of return scenarios from half of the minimum returns to 150% of the maximum returns, and find out where along our curve is the maximum sharpe ratio and the minimum variation. Presumably, we would like to have our portfolios somewhere between the minimum variation and the maximum sharpe ration, as this is our efficient frontier. Finally, we plot the risk to returns of the portfolio and display the postion found at the maximum sharpe ratio. 
+
+#### Nickel
+
+```{r}
+#Storing the returns in the variable R and taking them out of 
+#percentage for, for calculations
+R <- returns[, 1:3]/100
+#getting the tails of the nickel distribution
+quantile_R <- quantile(R[, 1], 0.95)               
+#Getting all columns when nickel is at it's extreme
+R <- subset(R, nickel > quantile_R, select = nickel:aluminium)
+#Getting the names for the columns
+names.R <- colnames(R)
+#Applying the mean for the returns
+mean.R <- apply(R, 2, mean)
+#Creating a covariance matrix to extract the diagonals
+cov.R <- cov(R)
+#Diagonals are the variances, taking the sqrt give stds
+sd.R <- sqrt(diag(cov.R)) 
+#Ensuring that the weights add up to 1
+Amat <- cbind(rep(1, 3), mean.R)
+#Creating a sequence of targets returns from half minimum avg returns
+#To 150% of the maximum average returns with 300 possibilities
+mu.P <- seq(0.5 * min(mean.R), 1.5 * 
+    max(mean.R), length = 300)  
+#Variable to store stdevs
+sigma.P <- mu.P
+#Creatinf an empty matrix to hold the various positions of the metals
+weights <- matrix(0, nrow = 300, ncol = ncol(R))
+#Giving the weights a column name
+colnames(weights) <- names.R
+#For each of the target returns
+for (i in 1:length(mu.P)) {
+    #saving the constraint vector for that scenario
+    bvec <- c(1, mu.P[i])
+    #determining the solutions for that target allowing a short position
+    result <- solve.QP(Dmat = 2 * cov.R, 
+        dvec = rep(0, 3), Amat = Amat, 
+        bvec = bvec, meq = 2)
+    #Saving the stdevs in the sigma.P variable in index of this iteration
+    sigma.P[i] <- sqrt(result$value)
+    #Saving the weights in the row index of this iteration
+    weights[i, ] <- result$solution
+}
+#creating a data frame with the stdevs and the target
+sigma.mu.df <- data.frame(sigma.P = sigma.P, 
+    mu.P = mu.P)
+#Getting the daily return for a risk free assest
+#30 yr treasury yield (3% / 100 / 365)
+mu.free <- (3 / 100 / 365)
+#Finding the sharpe ration to maximize the return to risk
+sharpe <- (mu.P - mu.free)/sigma.P
+#Finding indices of where the ratio is the largest
+ind <- (sharpe == max(sharpe))
+#index where variance is smallest
+ind2 <- (sigma.P == min(sigma.P))
+#Finding all indices where ratio is larger than the smallest variance
+ind3 <- (mu.P > mu.P[ind2])
+#creating a vector that gives a color:
+#blue if returns are greater than the returns at minimum variance
+#grey if returns are less than returns at minimum variance making 
+#effiviant frontier blue
+col.P <- ifelse(mu.P > mu.P[ind2], "blue", 
+    "grey")
+#adding color ot the data frame of stds and returns
+sigma.mu.df$col.P <- col.P
+# plotting Efficient Frontier x is variance, y is target returns
+#Efficient frontier plotted as blue in the line plot
+p <- ggplot(sigma.mu.df, aes(x = sigma.P, 
+    y = mu.P, group = 1)) + geom_line(aes(colour = col.P, 
+    group = col.P)) + scale_colour_identity()
+#adding a red dot representing the risk-free asset
+p <- p + geom_point(aes(x = 0, y = mu.free), 
+    colour = "red")
+options(digits = 4)
+#Drawing line from risk free asset to the max sharpe ratio
+#Creating a line tangent to the curve
+p <- p + geom_abline(intercept = mu.free, 
+    slope = (mu.P[ind] - mu.free)/sigma.P[ind], 
+    colour = "red")
+#Adding a point to the maximum sharpe ratio
+p <- p + geom_point(aes(x = sigma.P[ind], 
+    y = mu.P[ind]))
+#Adding a point at minimum variance
+p <- p + geom_point(aes(x = sigma.P[ind2], 
+    y = mu.P[ind2]))
+#Adding text of the metal to the mean and stdev of returns for 
+#aluminum, copper, and nickel
+p <- p + annotate("text", x = sd.R[1], 
+    y = mean.R[1], label = names.R[1]) + 
+    annotate("text", x = sd.R[2], y = mean.R[2], 
+        label = names.R[2]) + annotate("text", 
+    x = sd.R[3], y = mean.R[3], label = names.R[3])
+# Showing the interactive graph 
+ggplotly(p)
+
+sharpe.position <- weights[ind,] * 100
+names <- names(sharpe.position)
+sharpe.position <- paste(round(sharpe.position, 2), "%", sep = "")
+names(sharpe.position) <- names
+knitr::kable(sharpe.position, col.names = "Metals Positions", row.names = T, digits = 2)
+
+# Next steps: 1. Subset portfolio
+# data into body and tail of one
+# commodity 2. Deposit into
+# flexdashboard 3. Render all plots
+# with plotly 4. Plan sliders for
+# interaction with plots
+```
+
+The efficient frontier using the 95% of nickel returns as an estimate for maximum returns results in a range from 1.65% to 3.33% returns. The plot also shows that aluminum is the metal with the least amount of risk, but also the least returns in this scenario. If we were to take a position as reccommended by the Sharpe's ratio, we would portfolio would long 84.92% nickel and 18.61% aluminum, and short 3.53% copper. In this scenario, expanding our shipments to include nickel would be a good thing for the company. While we could potentially position our portfolio to have an even greater returns, it would be too risky for our business.
+
+
+#### Copper
+
+
+```{r}
+#Storing the returns in the variable R and taking them out of 
+#percentage for, for calculations
+R <- returns[, 1:3]/100
+#getting the tails of the copper distribution
+quantile_R <- quantile(R[, 2], 0.95)               
+#Getting all columns when copper is at it's extreme
+R <- subset(R, copper > quantile_R, select = nickel:aluminium)
+#Getting the names for the columns
+names.R <- colnames(R)
+#Applying the mean for the returns
+mean.R <- apply(R, 2, mean)
+#Creating a covariance matrix to extract the diagonals
+cov.R <- cov(R)
+#Diagonals are the variances, taking the sqrt give stds
+sd.R <- sqrt(diag(cov.R)) 
+#Ensuring that the weights add up to 1
+Amat <- cbind(rep(1, 3), mean.R)
+#Creating a sequence of targets returns from half minimum avg returns
+#To 150% of the maximum average returns with 300 possibilities
+mu.P <- seq(0.5 * min(mean.R), 1.5 * 
+    max(mean.R), length = 300)  
+#Variable to store stdevs
+sigma.P <- mu.P
+#Creatinf an empty matrix to hold the various positions of the metals
+weights <- matrix(0, nrow = 300, ncol = ncol(R))
+#Giving the weights a column name
+colnames(weights) <- names.R
+#For each of the target returns
+for (i in 1:length(mu.P)) {
+    #saving the constraint vector for that scenario
+    bvec <- c(1, mu.P[i])
+    #determining the solutions for that target allowing a short position
+    result <- solve.QP(Dmat = 2 * cov.R, 
+        dvec = rep(0, 3), Amat = Amat, 
+        bvec = bvec, meq = 2)
+    #Saving the stdevs in the sigma.P variable in index of this iteration
+    sigma.P[i] <- sqrt(result$value)
+    #Saving the weights in the row index of this iteration
+    weights[i, ] <- result$solution
+}
+#creating a data frame with the stdevs and the target
+sigma.mu.df <- data.frame(sigma.P = sigma.P, 
+    mu.P = mu.P)
+#Getting the daily return for a risk free assest
+#30 yr treasury yield (3% / 100 / 365)
+mu.free <- (3 / 100 / 365)
+#Finding the sharpe ration to maximize the return to risk
+sharpe <- (mu.P - mu.free)/sigma.P
+#Finding indices of where the ratio is the largest
+ind <- (sharpe == max(sharpe))
+#index where variance is smallest
+ind2 <- (sigma.P == min(sigma.P))
+#Finding all indices where ratio is larger than the smallest variance
+ind3 <- (mu.P > mu.P[ind2])
+#creating a vector that gives a color:
+#blue if returns are greater than the returns at minimum variance
+#grey if returns are less than returns at minimum variance making 
+#effiviant frontier blue
+col.P <- ifelse(mu.P > mu.P[ind2], "blue", 
+    "grey")
+#adding color ot the data frame of stds and returns
+sigma.mu.df$col.P <- col.P
+# plotting Efficient Frontier x is variance, y is target returns
+#Efficient frontier plotted as blue in the line plot
+p <- ggplot(sigma.mu.df, aes(x = sigma.P, 
+    y = mu.P, group = 1)) + geom_line(aes(colour = col.P, 
+    group = col.P)) + scale_colour_identity()
+#adding a red dot representing the risk-free asset
+p <- p + geom_point(aes(x = 0, y = mu.free), 
+    colour = "red")
+options(digits = 4)
+#Drawing line from risk free asset to the max sharpe ratio
+#Creating a line tangent to the curve
+p <- p + geom_abline(intercept = mu.free, 
+    slope = (mu.P[ind] - mu.free)/sigma.P[ind], 
+    colour = "red")
+#Adding a point to the maximum sharpe ratio
+p <- p + geom_point(aes(x = sigma.P[ind], 
+    y = mu.P[ind]))
+#Adding a point at minimum variance
+p <- p + geom_point(aes(x = sigma.P[ind2], 
+    y = mu.P[ind2]))
+#Adding text of the metal to the mean and stdev of returns for 
+#aluminum, copper, and nickel
+p <- p + annotate("text", x = sd.R[1], 
+    y = mean.R[1], label = names.R[1]) + 
+    annotate("text", x = sd.R[2], y = mean.R[2], 
+        label = names.R[2]) + annotate("text", 
+    x = sd.R[3], y = mean.R[3], label = names.R[3])
+# Showing the interactive graph 
+ggplotly(p)
+
+sharpe.position <- weights[ind,] * 100
+names <- names(sharpe.position)
+sharpe.position <- paste(round(sharpe.position, 2), "%", sep = "")
+names(sharpe.position) <- names
+knitr::kable(sharpe.position, col.names = "Metals Positions", row.names = T, digits = 2)
+```
+
+The efficient frontier using the 95% of copper returns as an estimate for maximum returns results in a range from 2.10% to 2.80% returns. The plot also shows that copper is the metal with the least amount of risk, and the metal that has the greatest returns. However, this modeling scenario provides a shorter efficient frontier, with an a smaller peotential maximum returns than the nickel modeling. If we were to take a position as reccommended by the Sharpe's ratio, we would portfolio would long 113.37% copper and short 5.49% nickel and 7.88% aluminum
+
+#### Aluminium
+
+```{r}
+#Storing the returns in the variable R and taking them out of 
+#percentage for, for calculations
+R <- returns[, 1:3]/100
+#getting the tails of the copper distribution
+quantile_R <- quantile(R[, 3], 0.95)               
+#Getting all columns when copper is at it's extreme
+R <- subset(R, aluminium > quantile_R, select = nickel:aluminium)
+#Getting the names for the columns
+names.R <- colnames(R)
+#Applying the mean for the returns
+mean.R <- apply(R, 2, mean)
+#Creating a covariance matrix to extract the diagonals
+cov.R <- cov(R)
+#Diagonals are the variances, taking the sqrt give stds
+sd.R <- sqrt(diag(cov.R)) 
+#Ensuring that the weights add up to 1
+Amat <- cbind(rep(1, 3), mean.R)
+#Creating a sequence of targets returns from half minimum avg returns
+#To 150% of the maximum average returns with 300 possibilities
+mu.P <- seq(0.5 * min(mean.R), 1.5 * max(mean.R), length = 300)  
+#Variable to store stdevs
+sigma.P <- mu.P
+#Creatinf an empty matrix to hold the various positions of the metals
+weights <- matrix(0, nrow = 300, ncol = ncol(R))
+#Giving the weights a column name
+colnames(weights) <- names.R
+#For each of the target returns
+for (i in 1:length(mu.P)) {
+    #saving the constraint vector for that scenario
+    bvec <- c(1, mu.P[i])
+    #determining the solutions for that target allowing a short position
+    result <- solve.QP(Dmat = 2 * cov.R, 
+        dvec = rep(0, 3), Amat = Amat, 
+        bvec = bvec, meq = 2)
+    #Saving the stdevs in the sigma.P variable in index of this iteration
+    sigma.P[i] <- sqrt(result$value)
+    #Saving the weights in the row index of this iteration
+    weights[i, ] <- result$solution
+}
+#creating a data frame with the stdevs and the target
+sigma.mu.df <- data.frame(sigma.P = sigma.P, 
+    mu.P = mu.P)
+#Getting the daily return for a risk free assest
+#30 yr treasury yield (3% / 100 / 365)
+mu.free <- (3 / 100 / 365)
+#Finding the sharpe ration to maximize the return to risk
+sharpe <- (mu.P - mu.free)/sigma.P
+#Finding indices of where the ratio is the largest
+ind <- (sharpe == max(sharpe))
+#index where variance is smallest
+ind2 <- (sigma.P == min(sigma.P))
+#Finding all indices where ratio is larger than the smallest variance
+ind3 <- (mu.P > mu.P[ind2])
+#creating a vector that gives a color:
+#blue if returns are greater than the returns at minimum variance
+#grey if returns are less than returns at minimum variance making 
+#effiviant frontier blue
+col.P <- ifelse(mu.P > mu.P[ind2], "blue", 
+    "grey")
+#adding color ot the data frame of stds and returns
+sigma.mu.df$col.P <- col.P
+# plotting Efficient Frontier x is variance, y is target returns
+#Efficient frontier plotted as blue in the line plot
+p <- ggplot(sigma.mu.df, aes(x = sigma.P, 
+    y = mu.P, group = 1)) + geom_line(aes(colour = col.P, 
+    group = col.P)) + scale_colour_identity()
+#adding a red dot representing the risk-free asset
+p <- p + geom_point(aes(x = 0, y = mu.free), 
+    colour = "red")
+options(digits = 4)
+#Drawing line from risk free asset to the max sharpe ratio
+#Creating a line tangent to the curve
+p <- p + geom_abline(intercept = mu.free, 
+    slope = (mu.P[ind] - mu.free)/sigma.P[ind], 
+    colour = "red")
+#Adding a point to the maximum sharpe ratio
+p <- p + geom_point(aes(x = sigma.P[ind], 
+    y = mu.P[ind]))
+#Adding a point at minimum variance
+p <- p + geom_point(aes(x = sigma.P[ind2], 
+    y = mu.P[ind2]))
+#Adding text of the metal to the mean and stdev of returns for 
+#aluminum, copper, and nickel
+p <- p + annotate("text", x = sd.R[1], 
+    y = mean.R[1], label = names.R[1]) + 
+    annotate("text", x = sd.R[2], y = mean.R[2], 
+        label = names.R[2]) + annotate("text", 
+    x = sd.R[3], y = mean.R[3], label = names.R[3])
+# Showing the interactive graph 
+ggplotly(p)
+
+sharpe.position <- weights[ind,] * 100
+names <- names(sharpe.position)
+sharpe.position <- paste(round(sharpe.position, 2), "%", sep = "")
+names(sharpe.position) <- names
+knitr::kable(sharpe.position, col.names = "Metals Positions", row.names = T, digits = 2)
+```
+
+The efficient frontier using the 95% of aluminum returns as an estimate for maximum returns results in a range from 2.12% to 3.22% returns. The plot also shows that aluminum is the metal with the least amount of risk, and the metal that has the greatest returns. However, this modeling scenario provides a shorter efficient frontier, with an a smaller peotential maximum returns than the nickel modeling. If we were to take a position as reccommended by the Sharpe's ratio, we would portfolio would long 115.40% aluminum and short 0.12% nickel and 15.53% copper. This scenario does not provide great evidence of entering the nickel trade.
+
+### No Short Positions
+
+Assuming we are only looking to sell our metals, we would want to look at scenarios where we cannot take a short position (in our case buy). The only differences between the code finding the efficient frontier for all positions and the efficient frontier for no short positions is a change in the constraint matrix Amat, a diagonal of 1's, to enure that each of the metals are greater than or quat to zero and adding three 0's to bvec, so the matrix mulitplication can occur. 
+
+```{r}
+#Get returns and make them not as percentages
+R <- returns[,1:3]/100
+#Getting the names for the columns
+names.R <- colnames(R)
+#Get the 95% of nickel
+quantile_R <- quantile(R[,1], 0.95)
+#Find the percent changes when nickel is in the tails of gains
+R <- subset(R, nickel > quantile_R, select = nickel:aluminium)
+#Find mean for this subset for each metal
+mean.R <- apply(R,2,mean)
+#Covariance matrix to determine stdevs
+cov.R <-  cov(R)
+#Stdevs from the square root of teh variances
+sd.R <-  sqrt(diag(cov.R))
+#creating constrint vector with 1's as the intercept, means as the weight
+#and the diagonal of 1's as teh position
+Amat <-  cbind(rep(1,3),mean.R,diag(1,nrow=3))
+length.P <- 300
+#Creating a sequence of targets returns from half minimum avg returns
+#To 150% of the maximum average returns with 300 possibilities
+mu.P <-  seq(min(mean.R)+.0001,max(mean.R)-.0001,length = length.P) 
+# variable to hold the stdevs
+sigma.P <- mu.P
+#Variable to hold the weights
+weights <-  matrix(0, nrow = length.P, ncol = 3)
+#Giving the weights a column name
+colnames(weights) <- names.R
+#For each potential returns scenario
+for (i in 1:length(mu.P))
+{
+  #vector constraining no short postions
+  bvec <-  c(1,mu.P[i],rep(0,3))
+  #Finding the portfolio that meets the returns and calculating the stdevs
+  result <-  
+    solve.QP(Dmat=2*cov.R,dvec=rep(0,3),Amat=Amat,bvec=bvec,meq=2)
+  sigma.P[i] <-  sqrt(result$value)
+  weights[i,] <-  result$solution
+}
+#Saving a data frame of the stdevs and the target returns
+sigma.mu.df <- data.frame(sigma.P = sigma.P, mu.P = mu.P )
+#Getting the daily return for a risk free assest
+#30 yr treasury yield (3% / 100 / 365)
+mu.free <- (3 / 100 / 365)
+#Finding the sharpe's ratio for every scenario
+sharpe <- ( mu.P-mu.free)/sigma.P
+#indexing max sharpe's ratio
+ind <-  (sharpe == max(sharpe))
+#Indexing the minimum variance
+ind2 <-  (sigma.P == min(sigma.P))
+#indexing where the returns are greater than the returns at
+#the minimum variance position
+ind3 <-  (mu.P > mu.P[ind2])
+#Creating a column for colors that show when the plot is
+#greater than the minimum variance
+col.P <- ifelse(mu.P > mu.P[ind2], "blue", "grey")
+#Adding the colors to teh dataframe for plotting
+sigma.mu.df$col.P <- col.P
+#when flexdashboard renderPlotly({
+p <- ggplot(sigma.mu.df, aes(x = sigma.P, y = mu.P, group = 1)) + geom_line(aes(colour=col.P, group = col.P)) + scale_colour_identity() # + xlim(0, max(sd.R*1.1))  + ylim(0, max(mean.R)*1.1) + 
+p <- p + geom_point(aes(x = 0, y = mu.free), colour = "red")
+options(digits=4)
+p <- p + geom_abline(intercept = mu.free, slope = (mu.P[ind]-mu.free)/sigma.P[ind], colour = "red")
+p <- p + geom_point(aes(x = sigma.P[ind], y = mu.P[ind])) 
+p <- p + geom_point(aes(x = sigma.P[ind2], y = mu.P[ind2])) ## show min var portfolio
+p <- p + annotate("text", x = sd.R[1], y = mean.R[1], label = names.R[1]) + annotate("text", x = sd.R[2], y = mean.R[2], label = names.R[2]) + annotate("text", x = sd.R[3], y = mean.R[3], label = names.R[3])
+p <- p + geom_vline(aes(xintercept = sd.R[2]), color = "red")
+ggplotly(p)
+
+sharpe.position <- weights[ind,] * 100
+names <- names(sharpe.position)
+sharpe.position <- paste( round(sharpe.position, 2), "%", sep = "")
+names(sharpe.position) <- names
+knitr::kable(sharpe.position, col.names = "Metals Positions", row.names = T, digits = 2)
+```
+
+The plot of the efficient frontier shows that nickel will provide the greatest returns, but there is also a good bit of risk involved; in fact, all of the metal we arte evaluating have a fiarly significant risk. This scenario also shows that we would likely want to stop selling copper, primarily due to the high risk and the low returns. If we were to hold a position at sharpe's ration, we would want our portfolio to long 82.09% nickel and 17.91% aluminum. This could potenially result in a recommendation to management to stop getting involved in the copper trade. 
+
+### Bootstrapping
+
+Now that we know how to use historical data to model our positions to meet a target return, and in effect our position at the sharpe's ratio, but that data we used to create our model is not going to be replicated ever again. However, if we use the historical returns and randomly index them to createa multiple scenarios of returns, we could get a better estimate and a nice range on where we believ our returns will likely be. 
+
+In the following block of code, we will conduct 1000 different simulations, randomly indexing our historical returns to create a model similar in distribution to our historical data, but not identical. We will then use this random simulation to optimize our position on this the randpm simulation. After finding what our optimal position would be, we will calculate what our actual returns would be if we had this simulated position on the actual data. We will then save what our predicted returns and what the returns we would have made on the actual data then plot the predicted vs actual and the residuals of the estimate. 
+
+```{r}
+R <- returns[,1:3]/100
+quantile_R <- quantile(R[, 1], 0.95)         
+R <- subset(R, nickel > quantile_R, select = nickel:aluminium)
+# Getting number of rows in our returns
+n <- dim(R)[1]
+#Getting the number of columns in our returns
+N <- dim(R)[2]
+#Getting the actual mean of returns from our metals
+mean_vect_ACTUAL <- apply(R, 2, mean)
+#Creating the actual covariance matrix for metals
+cov_mat_ACTUAL <- cov(R)
+# Settign up 1000 simulations
+n_boot <- 1000
+#Creating a matrix of 1's that has 1000 rows and 2 columns
+out <- matrix(1, nrow = n_boot, ncol = 2)
+#Creating a matrix of 1's that has 1000 rows and same number of columns as metals
+mean_out <- matrix(1, nrow = n_boot, ncol = dim(R)[2])
+#Setting a seed for repeatable analysis
+set.seed(1016)
+#For each of the simulations
+for (i_boot in (1:n_boot)) {
+    # generate n-1 random indices multiplied by the number of possible rows
+    #and taking the ceiling so the minimum number an index can be is 1
+    uniform <- ceiling((n - 1) * runif(n - 
+        1))
+    #Selecting the random sample using the random indices
+    R_boot <- R[uniform, ]  # select random sample
+    #getting the simulated metals mean
+    mean_vect <- apply(R_boot, 2, mean)
+    #Saving the means in the mean matrix
+    mean_out[i_boot, ] <- mean_vect
+    #Getting the covariance and standard deviations for the simutaltion
+    cov_mat <- cov(R_boot)
+    sd_vect <- sqrt(diag(cov_mat))
+    #Creating the constraint matrix for this simulation
+    Amat <- cbind(rep(1, N), mean_vect)  # short sales allowed
+    #Creating a variable to store teh standard deviation of the portfolio 
+    sd.P <- mu.P
+    #Getting the returns for the risk-free asset
+    mu.free <- (3 / 100 / 365)
+    #creating a sequence for possible returns 
+    mu.P <- seq(min(mean_vect) + 1e-04, 
+        max(mean_vect) - 1e-04, length = 300)  #length.P)
+    #Creating a weight matrix to save the positions (300 rows 3 columns)
+    weights <- matrix(0, nrow = 300, 
+        ncol = N)
+    #fro each oof the possible returns
+    for (i in 1:length(mu.P)) {
+        #initial values
+        bvec <- c(1, mu.P[i])  # short sales
+        #Solving portfolio for the target return
+        result <- solve.QP(Dmat = 2 * 
+            cov_mat, dvec = rep(0, N), 
+            Amat = Amat, bvec = bvec, 
+            meq = 2)
+        #Saving the sd in the standard deviation matrix
+        sd.P[i] <- sqrt(result$value)
+        #Saving the weights in the weights vector
+        weights[i, ] <- result$solution
+    }
+    #Solving for the sharpe ratio of this scenario
+    sharpe <- (mu.P - mu.free)/sd.P
+    #Indexing the highest sharpe ratio
+    ind <- (sharpe == max(sharpe))
+    #Saving the maximum sharpe's ratio for this simulation 
+    out[i_boot, 1] <- sharpe[ind]
+    #Storing the weights for the sharpe's ratio in the 
+    #weights matrix
+    w.T <- weights[ind, ]
+    #Showing how returns would be for this weight in the actual
+    sharpe_ACTUAL <- (w.T %*% mean_vect_ACTUAL - 
+        mu.free)/sqrt(w.T %*% cov_mat_ACTUAL %*% 
+        w.T)
+    #Storing the returns for these weights 
+    out[i_boot, 2] <- sharpe_ACTUAL
+}
+#Creating a data frame that shows what we would 
+#have made with those weights in that simulation, What
+#the simulation predicted we would have made and the difference
+#Between the predicted and the actual returns
+out_SHORT <- data.frame(actual = out[, 
+    2], predicted = out[, 1], residuals = out[, 
+    2] - out[, 1])
+#Create a data moments for our predicted and actual returns
+out_SUMMARY <- data_moments(as.matrix(out_SHORT))
+#Make the table nice
+knitr::kable(out_SUMMARY)
+#Storing the results of the actual returns
+results <- out_SHORT
+#Getting the minimum x & y for plotting
+min_xy <- min(min(results$actual), min(results$predicted))
+#Getting the maximum x & y for plotting
+max_xy <- max(max(results$actual), max(results$predicted))
+#Melting the results to create a faect plot
+plot_melt <- melt(results, id.vars = "predicted")
+#Abbing the max x-y and min x-y so facet plots have the same scale
+plot_data <- rbind(plot_melt, data.frame(predicted = c(min_xy, 
+    max_xy), variable = c("actual", "actual"), 
+    value = c(max_xy, min_xy)))
+p <- ggplot(plot_data, aes(x = predicted, 
+    y = value)) + geom_point(size = 2.5) + 
+    theme_bw()
+p <- p + facet_wrap(~variable, scales = "free")
+p
+```
+
+The above plots show that no matter our position, we would likely have a sharpe ratio of approximately 3, but it could range from approximately 2.1 to 2.95.  We should also consider that the residuals show we should not get too excited when our model predicts us to have a sharpe ratio of 6 as the residual steadily increases in magnitude the higher our prediction. We should also note that the the actual sharpe ratio we would get is is relatively close to the maximum sharpe ratio we calculated for nickel earlier. This would mean that simulation our estimate is like to be close to the maximum actual sharpe ratio.
+
+Next, we will plot the predicted sharpe ratio vs the actual sharpe ratio and provide a 95% confidence interval in what our sharpe ratio will look like. 
+
+```{r}
+# Simpler scatter plots using
+# quantiles to identify confidence
+# intervals
+p <- ggplot(results, aes(predicted, actual)) + 
+    geom_point() + ggtitle("Actual vs. Predicted Sharpe's Ratios") + 
+    geom_quantile(quantiles = c(0.01, 
+        0.99)) + geom_quantile(quantiles = 0.5, 
+    linetype = "longdash") + geom_density_2d(colour = "red")
+p
+```
+
+Once again, we can see that actual sharpe ratios are centered around 2.9, although there are some sharpe ratios were significantly less. This plot also shows that the predicted sharpe ratios have relatively little to do with what actual sharpe ratios will look like. After this simulation, we can have some confidence that our predicted Sharpe ratio on the historical data will likely result in a future sharpe ratio between 2.2 and 3.
